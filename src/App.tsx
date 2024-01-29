@@ -1,32 +1,18 @@
+// src/App.tsx
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
-import ChessSquare from "./ChessSquare";
+import { Route, Routes } from 'react-router-dom';
+import ChessLobby from './ChessLobby';
+import Login from './Login';
 
-function App() {
-  const rows = 8;
-  const columns = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-
-  const isDarkSquare = (row: number, colIndex: number) => {
-    return (row + colIndex) % 2 === 1;
-  };
-
+const App = () => {
   return (
-      <div className="chessboard">
-        {Array.from({ length: rows }, (_, rowIndex) => (
-            <div key={rowIndex} className="row">
-              {columns.map((column, colIndex) => (
-                  <ChessSquare
-                      key={column}
-                      color={isDarkSquare(rowIndex, colIndex) ? 'dark' : 'light'}
-                      column={column}
-                      row={8 - rowIndex} // Invert row numbering to start from 1 at the bottom
-                  />
-              ))}
-            </div>
-        ))}
+      <div className="app">
+        <Routes> 
+          <Route path="/" element={<Login/>} />
+          <Route path="/chess-lobby" element={<ChessLobby/>} />
+        </Routes>
       </div>
   );
-}
+};
 
 export default App;

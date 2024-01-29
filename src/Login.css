@@ -1,0 +1,66 @@
+.App {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #e0ddd8; /* Cor de fundo em um tom terroso claro */
+  }
+  
+  .login-container {
+    background: #9b9289; /* Cor de fundo em um tom terroso mais escuro */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 300px;
+  }
+  
+  h2 {
+    text-align: center;
+    color: #493922; /* Cor do texto em um tom terroso escuro */
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 5px;
+    color: #382f21; /* Cor do texto em um tom terroso escuro */
+  }
+  
+  input {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #8e836f; /* Cor da borda em um tom terroso médio */
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  
+  button {
+    background-color: #443821; /* Cor de fundo do botão em um tom terroso médio */
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  
+  button:hover {
+    background-color: #8a775a; /* Cor de fundo do botão ao passar o mouse em um tom terroso mais escuro */
+  }
+  
+  p {
+    text-align: center;
+    margin-top: 10px;
+    cursor: pointer;
+    color: #6a5b48; /* Cor do texto em um tom terroso médio */
+  }
+  
+  p:hover {
+    text-decoration: underline;
+  }
+  
