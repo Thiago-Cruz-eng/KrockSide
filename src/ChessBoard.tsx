@@ -17,7 +17,7 @@ const ChessBoard: React.FC = () => {
                         key={column}
                         color={isDarkSquare(rowIndex, colIndex) ? 'dark' : 'light'}
                         column={column}
-                        row={8 - rowIndex} // Invert row numbering to start from 1 at the bottom
+                        row={8 - rowIndex}
                     />
                 ))}
               </div>
