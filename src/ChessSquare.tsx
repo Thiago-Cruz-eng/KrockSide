@@ -1,19 +1,29 @@
-// ChessSquare.tsx
 import React from 'react';
+import './ChessSquare.css';
+import {useSignalR} from "./SignalRContext";
+import ChessPiece from "./ChessPiece";
+import Position from "./Position"; // Import the CSS file for ChessSquare styles
 
-interface ChessSquareProps {
-    color: string;
-    type?: string; // You can add more specific types like 'pawn', 'rook', etc.
-    column: string;
-    row: number;
-}
+const sendMove = async (connection: any, column: string, row: number, piece: any) => {
+    const position = {
 
-const ChessSquare: React.FC<ChessSquareProps> = ({ color, type, column, row }) => {
+    }
+    await connection.invoke("SendPossiblesMoves", "ThiagãoDasCouves5", actualRoomName)
+};
+
+const ChessSquare: React.FC<Position> = ({ column, row, piece, squareColor }) => {
+    const connection = useSignalR();
+    const squareColorClass = squareColor === 'dark' ? 'dark' : 'light';
+
+
     return (
-        <div className={`square ${color}`}>
-    {type && <div className={`piece ${type}`}>{/* Piece SVG or text representation */}</div>}
+        <div onClick={() => sendMove(connection, column, row, piece)} className={`square ${squareColorClass}`}>
+            <img/>
+            <span>{`${column}${row}`}</span>
         </div>
     );
-    };
+};
 
-    export default ChessSquare;
+
+
+export default ChessSquare;
