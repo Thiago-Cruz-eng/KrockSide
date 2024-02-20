@@ -1,5 +1,5 @@
 import ChessSquare from "./ChessSquare";
-import './ChessBoard.css';
+import '../styles/ChessBoard.css';
 
 const ChessBoard: React.FC = () => {
     const rows = 8;
@@ -19,7 +19,6 @@ const ChessBoard: React.FC = () => {
                             color={isDarkSquare(rowIndex, colIndex) ? 'dark' : 'light'}
                             column={column}
                             row={8 - rowIndex}
-                            piece={piece}
                         />
                     ))}
                 </div>

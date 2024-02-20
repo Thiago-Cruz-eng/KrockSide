@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import './ChessLobby.css';
+import '../styles/ChessLobby.css';
 import * as signalR from "@microsoft/signalr";
 import {useNavigate} from "react-router-dom";
 import {useSignalR} from "./SignalRContext";
