@@ -1,20 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import './ChessLobby.css';
 import * as signalR from "@microsoft/signalr";
+import {useNavigate} from "react-router-dom";
+import {useSignalR} from "./SignalRContext";
 
 const ChessLobby: React.FC = () => {
+  const connectionOfWebSocket = useSignalR();
   const [isNewGame, setIsNewGame] = useState<boolean>(false);
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
   const [roomName, setRoomName] = useState<string>('');
   const [roomList, setRoomList] = useState<string[]>([]);
   const [playerInRooms, setPlayerInRooms] = useState<{ [key: string]: string }>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const newConnection = new signalR.HubConnectionBuilder()
-        .withUrl("https://localhost:44380/chesshub")
-        .build();
-
-    setConnection(newConnection);
+    setConnection(connectionOfWebSocket);
   }, []);
 
   useEffect(() => {
@@ -51,8 +51,9 @@ const ChessLobby: React.FC = () => {
   const handleJoinRoom = async (actualRoomName: string) => {
     try {
       if (connection) {
-        let c = await connection.invoke("JoinRoom", "ThiagãoDasCouves4", actualRoomName)
+        let c = await connection.invoke("JoinRoom", "ThiagãoDasCouves5", actualRoomName)
         console.log(c)
+        if(c.connectionId != null) navigate('/chess-board')
       }
     } catch (error) {
       console.error(error);

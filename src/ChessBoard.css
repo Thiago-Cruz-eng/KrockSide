@@ -1,33 +1,22 @@
-/* styles.css */
 .chessboard {
-    width: 1200px;
-    grid-template-columns: repeat(8, 50px);
-    grid-template-rows: repeat(8, 50px);
-  }
-  
-  .row {
-    display: flex;
-  }
-  
-  .square {
-    width: 75px;
-    height: 75px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .dark {
-    background-color: #769656;
-  }
-  
-  .light {
-    background-color: #eed09e;
-  }
-  
-  .piece {
-    /* Add styles for chess pieces if needed */
-    color: #000;
-    font-size: 24px;
-  }
-  
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+}
+
+/* Styling for dark squares */
+.dark {
+  width: 100px;
+  height: 100px;
+  background-color: #965656; /* Change the color to your preference */
+}
+
+/* Styling for light squares */
+.light {
+  width: 100px;
+  height: 100px;
+  background-color: #eeeed2; /* Change the color to your preference */
+}
