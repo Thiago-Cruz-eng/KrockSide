@@ -9,7 +9,6 @@ interface ChessSquareProps {
 }
 
 const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, onSquareClick }) => {
-    // Drag start handler
     const onDragStart = (e: React.DragEvent) => {
         e.dataTransfer.setData("piece", JSON.stringify({ row, column, piece }));
     };
@@ -56,7 +55,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, on
         >
             {piece && (
                 <img
-                    src={`path_to_images/${piece}.png`}
+                    src={`../styles/assets/${piece}.png`}
                     alt={"piece"}
                     draggable="true"
                     onDragStart={onDragStart}
