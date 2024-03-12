@@ -9,10 +9,8 @@ const baseURL = 'https://api.example.com'; // Replace with your API base URL
 
 const axiosInstance = axios.create({
     baseURL,
-    timeout: 5000, // Adjust as needed
     headers: {
         'Content-Type': 'application/json',
-        // You can add common headers here if needed
     },
 });
 
