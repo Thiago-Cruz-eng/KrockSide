@@ -21,8 +21,10 @@ const ChessBoard: React.FC = () => {
 
     const handleSquareClick = async (row: number, column: number) => {
         try {
+            console.log(connection)
+
             if(connection){
-                const response = await connection.invoke("sendMove", { row, column });
+                const response = await connection.invoke("MakeMove", { row, column });
                 if (response) {
                     console.log(response);
                 }

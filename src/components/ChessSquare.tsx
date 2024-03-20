@@ -2,17 +2,36 @@ import chessPiece from "../utils/ChessPiece";
 import "../styles/ChessPiece.css"
 import Piece from "../utils/ChessPiece";
 import ChessPieceType from "../utils/ChessPieceType";
+import {useRef, useState} from "react";
+import * as signalR from "@microsoft/signalr";
 
 interface ChessSquareProps {
     color: 'dark' | 'light';
     row: number;
     column: number;
     piece?: Piece;
-    onSquareClick: (row: number, column: number) => void; // Add this line
+    onSquareClick: (row: number, column: number) => void;
 }
 
 const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, onSquareClick }) => {
+    const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
+    const squareRef = useRef<HTMLDivElement>(null);
+
+    const handleSquareClick = async (row: number, column: number) => {
+        try {
+            if(connection){
+                const response = await connection.invoke("sendMove", { row, column });
+                if (response) {
+                    console.log(response);
+                }
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const onDragStart = (e: React.DragEvent) => {
+        console.log("inciei o movimento")
         e.dataTransfer.setData("piece", JSON.stringify({ row, column, piece }));
     };
 
@@ -27,27 +46,35 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, on
         animatePieceMovement(startRow, startColumn, targetRow, targetColumn, piece);
     };
 
-    const animatePieceMovement = (startRow: number, startColumn: number, endRow: number, endColumn: number, piece: chessPiece) => {
-        const startPosition = { x: startColumn * 8, y: startRow * 8 };
-        const endPosition = { x: endColumn * 8, y: endRow * 8 };
+    const animatePieceMovement = (startRow: number, startColumn: number, endRow: number, endColumn: number, piece: Piece) => {
+        console.log(startRow, startColumn, endRow, endColumn)
+        const startPosition = squareRef.current?.getBoundingClientRect();
+        if (!startPosition) return;
 
         const movingPiece = document.createElement("img");
-        movingPiece.src = `process.env.PUBLIC_URL + ${piece}.png`;
+        movingPiece.src = `${process.env.PUBLIC_URL}/${piece}.png`;
         movingPiece.style.position = "absolute";
-        movingPiece.style.left = `${startPosition.x}px`;
-        movingPiece.style.top = `${startPosition.y}px`;
+        movingPiece.style.left = `${startPosition.left}px`;
+        movingPiece.style.top = `${startPosition.top}px`;
         movingPiece.style.transition = "all 0.5s ease";
 
         document.body.appendChild(movingPiece);
 
         setTimeout(() => {
-            movingPiece.style.left = `${endPosition.x}px`;
-            movingPiece.style.top = `${endPosition.y}px`;
+            const endPosition = squareRef.current?.getBoundingClientRect();
+            if (!endPosition) return;
+            movingPiece.style.left = `${endPosition.left}px`;
+            movingPiece.style.top = `${endPosition.top}px`;
         }, 0);
 
         setTimeout(() => {
             movingPiece.remove();
-        }, 500); //all 0.5s ease sempre o mesmo tempo
+        }, 500);
+    };
+
+    const NoClickRapa = (row: number, column: number) => {
+        var x = onSquareClick(row, column)
+        console.log(row,column)
     };
 
     const getSizeClass = (piece: string) => {
@@ -78,6 +105,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, on
                 className={`chess-square ${color}`}
                 onDragOver={onDragOver}
                 onDrop={(e) => onDrop(e, row, column)}
+                onClick={() => NoClickRapa(row, column)}
             >
                 {piece && (
                     <img

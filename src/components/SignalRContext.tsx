@@ -14,6 +14,15 @@ export const SignalRProvider: React.FC<React.PropsWithChildren<{}>> = ({ childre
             .build();
 
         setConnection(newConnection);
+        newConnection.start().then(function () {
+            console.log("connected")
+        }).catch(function (err) {
+            return console.error(err.toString());
+        });
+
+        newConnection.onclose(function(){
+            console.log('connecition closed');
+        });
 
         return () => {
             if (connection) {
