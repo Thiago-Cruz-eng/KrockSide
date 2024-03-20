@@ -10,6 +10,8 @@ const Login = () => {
     email: '',
     password: '',
     passwordConfirmation: '',
+    dateBirth: new Date(),
+    phoneNumber: '',
   });
 
   const navigate = useNavigate();
@@ -42,9 +44,8 @@ const Login = () => {
         email: formData.email,
         password: formData.password,
         passwordConfirmation: formData.password,
-        dateBirth: new Date(),
-        address: 'Placeholder Address',
-        phoneNumber: '1234567890',
+        dateBirth: formData.dateBirth,
+        phoneNumber: formData.phoneNumber,
       });
       if (response) {
         console.log('Account creation successful', response);
@@ -79,21 +80,6 @@ const Login = () => {
         <div className="login-container">
           <h2>{isLogin ? 'Login' : 'Criar Conta'}</h2>
           <form onSubmit={handleSubmit}>
-            {!isLogin && (
-                <>
-                  <div className="form-group">
-                    <label htmlFor="username">Nome de Usuário</label>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        required
-                    />
-                  </div>
-                </>
-            )}
             <div className="form-group">
               <label htmlFor="email">E-mail</label>
               <input
@@ -116,6 +102,54 @@ const Login = () => {
                   required
               />
             </div>
+            {!isLogin && (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="password">Confirmar Senha</label>
+                    <input
+                        type="password"
+                        id="passwordConfirmation"
+                        name="passwordConfirmation"
+                        value={formData.passwordConfirmation}
+                        onChange={handleChange}
+                        required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="username">Nome de Usuário</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleChange}
+                        required
+                    />
+                  </div>
+                </>
+            )}
+            {/*<div className="form-group">*/}
+            {/*  <label htmlFor="date">Data de aniversario</label>*/}
+            {/*  <input*/}
+            {/*      type="text"*/}
+            {/*      id="dateBirth"*/}
+            {/*      name="dateBirth"*/}
+            {/*      onChange={handleChange}*/}
+            {/*      required*/}
+            {/*  />*/}
+            {/*</div>*/}
+            {/*<div className="form-group">*/}
+            {/*  <label htmlFor="text">Telefone</label>*/}
+            {/*  <input*/}
+            {/*      type="text"*/}
+            {/*      id="phone"*/}
+            {/*      name="number"*/}
+            {/*      value={formData.phoneNumber}*/}
+            {/*      onChange={handleChange}*/}
+            {/*      required*/}
+            {/*  />*/}
+            {/*</div>*/}
+
             {isLogin ? (
                 <button type="submit">Login</button>
             ) : (

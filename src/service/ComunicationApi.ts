@@ -1,4 +1,4 @@
-import {api} from "./Api";
+import { api } from "./Api";
 
 interface CreateUserRequest {
     userName: string;
@@ -6,7 +6,6 @@ interface CreateUserRequest {
     password: string;
     passwordConfirmation: string;
     dateBirth: Date;
-    address: string;
     phoneNumber: string;
 }
 
@@ -20,21 +19,29 @@ interface UserResponse {
     email: string;
 }
 
+interface LoginResponse {
+    Success: boolean;
+    email: string;
+    AccessToken: string;
+    message: string;
+    userId: string;
+}
+
 class UserController {
     static async createUser(userData: CreateUserRequest): Promise<UserResponse> {
         try {
-            const response = await api.post<UserResponse>('user/create', userData);
-            return response.data.data;
+            const response = await api.post<UserResponse>('create', userData);
+            return response.data;
         } catch (error) {
             console.error('Error creating user:', error);
             throw error;
         }
     }
 
-    static async loginUser(loginData: LoginRequest): Promise<{ token: string } | undefined> {
+    static async loginUser(loginData: LoginRequest): Promise<LoginResponse> {
         try {
-            const response = await api.post<{ token: string }>('user/login', loginData);
-            return response.data.data;
+            const response = await api.post<LoginResponse>('login', loginData);
+            return response.data;
         } catch (error) {
             console.error('Error logging in:', error);
             throw error;

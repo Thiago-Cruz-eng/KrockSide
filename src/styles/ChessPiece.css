@@ -1,0 +1,27 @@
+.chess-piece {
+    user-select: none;
+    margin-left: 30px;
+}
+
+.small {
+    width: 50px;
+    height: 60px;
+    margin-top: 40px
+}
+
+.medium {
+    width: 50px;
+    height: 80px;
+    margin-top: 20px
+}
+
+.medium-plus {
+    width: 50px;
+    height: 95px;
+    margin-top: 5px
+}
+
+.large {
+    width: 50px;
+    height: 100px;
+}

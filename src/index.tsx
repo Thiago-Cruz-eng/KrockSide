@@ -1,10 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '../styles/index.css';
-import App from './App';
-import reportWebVitals from '../utils/reportWebVitals';
+import './styles/index.css';
+import App from './components/App';
+import reportWebVitals from './utils/reportWebVitals';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { SignalRProvider } from './SignalRContext';
+import { SignalRProvider } from './components/SignalRContext';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

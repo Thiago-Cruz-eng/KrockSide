@@ -1,10 +1,13 @@
 import chessPiece from "../utils/ChessPiece";
+import "../styles/ChessPiece.css"
+import Piece from "../utils/ChessPiece";
+import ChessPieceType from "../utils/ChessPieceType";
 
 interface ChessSquareProps {
     color: 'dark' | 'light';
     row: number;
     column: number;
-    piece?: chessPiece;
+    piece?: Piece;
     onSquareClick: (row: number, column: number) => void; // Add this line
 }
 
@@ -29,7 +32,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, on
         const endPosition = { x: endColumn * 8, y: endRow * 8 };
 
         const movingPiece = document.createElement("img");
-        movingPiece.src = `path_to_images/${piece}.png`;
+        movingPiece.src = `process.env.PUBLIC_URL + ${piece}.png`;
         movingPiece.style.position = "absolute";
         movingPiece.style.left = `${startPosition.x}px`;
         movingPiece.style.top = `${startPosition.y}px`;
@@ -47,22 +50,46 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, on
         }, 500); //all 0.5s ease sempre o mesmo tempo
     };
 
+    const getSizeClass = (piece: string) => {
+        switch (piece) {
+            case "black-pawn":
+            case "white-pawn":
+                return 'small';
+            case "black-rook":
+            case "white-rook":
+            case "black-knight":
+            case "white-knight":
+            case "black-bishop":
+            case "white-bishop":
+                return 'medium';
+            case "black-queen":
+            case "white-queen":
+                return 'medium-plus';
+            case "black-king":
+            case "white-king":
+                return 'large';
+            default:
+                return '';
+        }
+    };
     return (
-        <div
-            className={`chess-square ${color}`}
-            onDragOver={onDragOver}
-            onDrop={(e) => onDrop(e, row, column)}
-        >
-            {piece && (
-                <img
-                    src={`../styles/assets/${piece}.png`}
-                    alt={"piece"}
-                    draggable="true"
-                    onDragStart={onDragStart}
-                />
-            )}
-        </div>
-
+        <>
+            <div
+                className={`chess-square ${color}`}
+                onDragOver={onDragOver}
+                onDrop={(e) => onDrop(e, row, column)}
+            >
+                {piece && (
+                    <img
+                        src={process.env.PUBLIC_URL + `${piece}.png`}
+                        alt={"piece"}
+                        draggable="true"
+                        onDragStart={onDragStart}
+                        className={`chess-piece ${getSizeClass(`${piece}`)}`}
+                    />
+                )}
+            </div>
+        </>
     );
 };
 

@@ -1,11 +1,11 @@
-import ChessPiece from './ChessPiece'; // Assuming the enum is defined in a separate file
+import ChessPieceType from './ChessPieceType';
 
 class Piece {
-    type: ChessPiece;
+    type: ChessPieceType;
     color: 'dark' | 'light';
     isInCheckState: boolean;
 
-    constructor(type: ChessPiece, color: 'dark' | 'light', isInCheckState: boolean) {
+    constructor(type: ChessPieceType, color: 'dark' | 'light', isInCheckState: boolean) {
         this.type = type;
         this.color = color;
         this.isInCheckState = isInCheckState;

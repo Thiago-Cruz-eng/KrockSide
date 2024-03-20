@@ -5,7 +5,7 @@ interface ApiResponse<T> {
     data: T;
 }
 
-const baseURL = 'https://api.example.com'; // Replace with your API base URL
+const baseURL = 'https://localhost:44380/';
 
 const axiosInstance = axios.create({
     baseURL,
@@ -15,8 +15,8 @@ const axiosInstance = axios.create({
 });
 
 export const api = {
-    get: <T>(url: string, config?: AxiosRequestConfig) => axiosInstance.get<ApiResponse<T>>(url, config),
-    post: <T>(url: string, data?: any, config?: AxiosRequestConfig) => axiosInstance.post<ApiResponse<T>>(url, data, config),
-    put: <T>(url: string, data?: any, config?: AxiosRequestConfig) => axiosInstance.put<ApiResponse<T>>(url, data, config),
-    delete: <T>(url: string, config?: AxiosRequestConfig) => axiosInstance.delete<ApiResponse<T>>(url, config),
+    get: <T>(url: string, config?: AxiosRequestConfig) => axiosInstance.get<T>(url, config),
+    post: <T>(url: string, data?: any, config?: AxiosRequestConfig) => axiosInstance.post<T>(url, data, config),
+    put: <T>(url: string, data?: any, config?: AxiosRequestConfig) => axiosInstance.put<T>(url, data, config),
+    delete: <T>(url: string, config?: AxiosRequestConfig) => axiosInstance.delete<T>(url, config),
 };

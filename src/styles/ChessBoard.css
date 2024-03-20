@@ -9,14 +9,14 @@
 
 /* Styling for dark squares */
 .dark {
-  width: 100px;
-  height: 100px;
+  width: 110px;
+  height: 110px;
   background-color: #965656; /* Change the color to your preference */
 }
 
 /* Styling for light squares */
 .light {
-  width: 100px;
-  height: 100px;
+  width: 110px;
+  height: 110px;
   background-color: #eeeed2; /* Change the color to your preference */
 }
