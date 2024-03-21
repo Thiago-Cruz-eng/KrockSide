@@ -13,20 +13,29 @@ export const SignalRProvider: React.FC<React.PropsWithChildren<{}>> = ({ childre
             .withUrl("https://localhost:44380/chesshub")
             .build();
 
-        setConnection(newConnection);
         newConnection.start().then(function () {
             console.log("connected")
         }).catch(function (err) {
             return console.error(err.toString());
         });
 
-        newConnection.onclose(function(){
-            console.log('connecition closed');
+        newConnection.onclose(() => {
+            console.log('connection closed');
+            // Attempt to reconnect after 5 seconds
+            setTimeout(() => {
+                newConnection.start().then(() => {
+                    console.log('reconnected');
+                }).catch((error) => {
+                    console.error('reconnect failed:', error);
+                });
+            }, 5000);
         });
+
+        setConnection(newConnection);
 
         return () => {
             if (connection) {
-
+                connection.off("close");
             }
         };
     }, []);

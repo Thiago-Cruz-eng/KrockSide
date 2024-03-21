@@ -1,34 +1,27 @@
-import chessPiece from "../utils/ChessPiece";
 import "../styles/ChessPiece.css"
 import Piece from "../utils/ChessPiece";
-import ChessPieceType from "../utils/ChessPieceType";
-import {useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import * as signalR from "@microsoft/signalr";
+import position from "../utils/Position";
+import {useSignalR} from "./SignalRContext";
+import ChessPiece from "../utils/ChessPiece";
 
 interface ChessSquareProps {
-    color: 'dark' | 'light';
+    color: 'Black' | 'White';
     row: number;
     column: number;
     piece?: Piece;
-    onSquareClick: (row: number, column: number) => void;
+    pieceName: string
 }
 
-const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, onSquareClick }) => {
-    const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
+const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,pieceName}) => {
     const squareRef = useRef<HTMLDivElement>(null);
+    const connectionOfWebSocket = useSignalR();
+    const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
 
-    const handleSquareClick = async (row: number, column: number) => {
-        try {
-            if(connection){
-                const response = await connection.invoke("sendMove", { row, column });
-                if (response) {
-                    console.log(response);
-                }
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
+    useEffect(() => {
+        setConnection(connectionOfWebSocket);
+    }, []);
 
     const onDragStart = (e: React.DragEvent) => {
         console.log("inciei o movimento")
@@ -72,9 +65,24 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, on
         }, 500);
     };
 
-    const NoClickRapa = (row: number, column: number) => {
-        var x = onSquareClick(row, column)
-        console.log(row,column)
+    const NoClickRapa = async (row: number, column: number, piece: Piece | undefined) => {
+        try {
+            console.log(connection)
+
+            let x = "ahla"
+            let chessPiece = new ChessPiece(piece!.type, color, piece!.isInCheckState)
+            let pos = new position(row, column, chessPiece!.color, chessPiece)
+            console.log(piece)
+            if(connection){
+                console.log(pos)
+                const response = await connection.invoke("SendPossiblesMove", { x, pos });
+                if (response) {
+                    console.log(response);
+                }
+            }
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const getSizeClass = (piece: string) => {
@@ -105,15 +113,15 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece, on
                 className={`chess-square ${color}`}
                 onDragOver={onDragOver}
                 onDrop={(e) => onDrop(e, row, column)}
-                onClick={() => NoClickRapa(row, column)}
+                onClick={() => NoClickRapa(row, column, piece)}
             >
                 {piece && (
                     <img
-                        src={process.env.PUBLIC_URL + `${piece}.png`}
+                        src={process.env.PUBLIC_URL + `${pieceName}.png`}
                         alt={"piece"}
                         draggable="true"
                         onDragStart={onDragStart}
-                        className={`chess-piece ${getSizeClass(`${piece}`)}`}
+                        className={`chess-piece ${getSizeClass(`${pieceName}`)}`}
                     />
                 )}
             </div>

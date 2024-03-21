@@ -50,17 +50,40 @@ const ChessLobby: React.FC = () => {
 
   const handleJoinRoom = async (actualRoomName: string) => {
     try {
+      console.log(connection)
       if (connection) {
         let c = await connection.invoke("JoinRoom", "ThiagãoDasCouves5", actualRoomName)
         console.log(c)
-        if(c.connectionId != null) navigate('/chess-board')
+        if(c.connectionId != null)  navigate(`/chess-board/${actualRoomName}`);
+
+        //INICIALIZAR ESSA CHAMA NO CHESS-BOARD SENDO A PRIMEIRA COISA A SER FEITA
+        //MAPEAR PEÇAS DE ACORDO E GERAR O BOARD
+            const response = await connection.invoke("StartGame", roomName);
+
+            console.log(response);
+
+
+
+
       }
     } catch (error) {
       console.error(error);
     }
   };
 
+  const make = async () => {
+    if(connection){
+
+      const response = await connection.invoke("StartGame", roomName);
+
+      console.log(response);
+
+
+    }
+  };
+
   const createRoom = async () => {
+    console.log(connection)
     try {
       if (connection) {
         await connection.invoke("CreateRoom", roomName);

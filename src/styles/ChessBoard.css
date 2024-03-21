@@ -1,22 +1,22 @@
 .chessboard {
-  display: flex;
-  flex-direction: column;
+  /*display: flex;*/
+  /*flex-direction: column;*/
+  background-color: #6a5b48;
+
 }
 
 .row {
   display: flex;
 }
 
-/* Styling for dark squares */
-.dark {
+.Black {
   width: 110px;
   height: 110px;
-  background-color: #965656; /* Change the color to your preference */
+  background-color: #965656;
 }
 
-/* Styling for light squares */
-.light {
+.White {
   width: 110px;
   height: 110px;
-  background-color: #eeeed2; /* Change the color to your preference */
+  background-color: #eeeed2;
 }
