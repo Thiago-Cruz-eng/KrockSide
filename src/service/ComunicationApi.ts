@@ -22,6 +22,11 @@ interface UserResponse {
     userId: string;
 }
 
+interface GetUserResponse {
+    userName: string;
+    email: string;
+}
+
 interface LoginResponse {
     Success: boolean;
     email: string;
@@ -34,6 +39,16 @@ class UserController {
     static async createUser(userData: CreateUserRequest): Promise<UserResponse> {
         try {
             const response = await api.post<UserResponse>('create', userData);
+            return response.data;
+        } catch (error) {
+            console.error('Error creating user:', error);
+            throw error;
+        }
+    }
+
+    static async getUser(id: string | undefined): Promise<GetUserResponse> {
+        try {
+            const response = await api.get<GetUserResponse>(`get/${id}`);
             return response.data;
         } catch (error) {
             console.error('Error creating user:', error);

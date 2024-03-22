@@ -40,8 +40,7 @@ export const SignalRProvider: React.FC<React.PropsWithChildren<{}>> = ({ childre
         };
     }, []);
 
-    if (!connection) return null; // Return null if connection is not yet established
-
+    if (!connection) return null; 
     return (
         <SignalRContext.Provider value={connection}>
             {children}

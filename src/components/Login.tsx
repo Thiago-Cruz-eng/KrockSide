@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UserController from '../service/ComunicationApi'; // Adjust the import path as necessary
 import '../styles/Login.css';
-import { log } from 'console';
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -31,7 +30,8 @@ const Login = () => {
       });
       if (response) {
         console.log('Login successful', response);
-        navigate('/chess-lobby');
+        let id = response.userId
+        navigate(`/chess-lobby/${id}`);
       }
     } catch (error) {
       console.error('Login failed:', error);
@@ -52,7 +52,8 @@ const Login = () => {
       setResponseMessage(response.message);
       if (response.Success) {
         console.log('Account creation successful', response);
-        navigate('/chess-lobby');
+        let id = response.userId
+        navigate(`/chess-lobby/${id}`);
       }
       console.log(response.message);
       setTimeout(() => {
