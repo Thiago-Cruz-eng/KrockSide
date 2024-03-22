@@ -63,4 +63,41 @@
   p:hover {
     text-decoration: underline;
   }
+
+  .response-message-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff;
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  .response-message-popup p {
+    margin: 0;
+    color: #333;
+    font-size: 16px;
+  }
+  
+  .response-message-popup button {
+    background-color: #4caf50;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+    transition: background-color 0.3s;
+  }
+  
+  .response-message-popup button:hover {
+    background-color: #45a049;
+  }
   

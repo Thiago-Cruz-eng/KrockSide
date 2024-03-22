@@ -15,8 +15,11 @@ interface LoginRequest {
 }
 
 interface UserResponse {
-    userName: string;
+    Success: boolean;
     email: string;
+    AccessToken: string;
+    message: string;
+    userId: string;
 }
 
 interface LoginResponse {

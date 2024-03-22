@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UserController from '../service/ComunicationApi'; // Adjust the import path as necessary
 import '../styles/Login.css';
+import { log } from 'console';
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [responseMessage, setResponseMessage] = useState('');
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -47,10 +49,15 @@ const Login = () => {
         dateBirth: formData.dateBirth,
         phoneNumber: formData.phoneNumber,
       });
-      if (response) {
+      setResponseMessage(response.message);
+      if (response.Success) {
         console.log('Account creation successful', response);
         navigate('/chess-lobby');
       }
+      console.log(response.message);
+      setTimeout(() => {
+        setResponseMessage('');
+      }, 1000);
     } catch (error) {
       console.error('Account creation failed:', error);
     }
@@ -73,6 +80,10 @@ const Login = () => {
     } else {
       handleRegister();
     }
+  };
+
+  const displayResponseMessage = () => {
+    alert(responseMessage);
   };
 
   return (
@@ -159,6 +170,11 @@ const Login = () => {
           <p onClick={handleToggleForm}>
             {isLogin ? 'Criar uma nova conta' : 'Já tem uma conta? Faça login'}
           </p>
+          {responseMessage && (
+            <div className="response-message-popup">
+              <p>{responseMessage}</p>
+            </div>
+          )}
         </div>
       </div>
   );

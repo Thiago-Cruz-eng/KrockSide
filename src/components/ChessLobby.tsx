@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/ChessLobby.css';
 import * as signalR from "@microsoft/signalr";
-import {useNavigate} from "react-router-dom";
-import {useSignalR} from "./SignalRContext";
+import { useNavigate } from "react-router-dom";
+import { useSignalR } from "./SignalRContext";
 
 const ChessLobby: React.FC = () => {
   const connectionOfWebSocket = useSignalR();
@@ -11,6 +11,7 @@ const ChessLobby: React.FC = () => {
   const [roomName, setRoomName] = useState<string>('');
   const [roomList, setRoomList] = useState<string[]>([]);
   const [playerInRooms, setPlayerInRooms] = useState<{ [key: string]: string }>({});
+  const [clickedRooms, setClickedRooms] = useState<string[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,12 +21,12 @@ const ChessLobby: React.FC = () => {
   useEffect(() => {
     if (connection) {
       connection.start()
-          .then(() => {
-            console.log('Connection established.');
-            handleGetRoom();
-            registerEventHandlers();
-          })
-          .catch(error => console.error("DEU RUIM", error));
+        .then(() => {
+          console.log('Connection established.');
+          handleGetRoom();
+          registerEventHandlers();
+        })
+        .catch(error => console.error("DEU RUIM", error));
     }
   }, [connection]);
 
@@ -54,31 +55,20 @@ const ChessLobby: React.FC = () => {
       if (connection) {
         let c = await connection.invoke("JoinRoom", "ThiagãoDasCouves5", actualRoomName)
         console.log(c)
-        if(c.connectionId != null)  navigate(`/chess-board/${actualRoomName}`);
-
-        //INICIALIZAR ESSA CHAMA NO CHESS-BOARD SENDO A PRIMEIRA COISA A SER FEITA
-        //MAPEAR PEÇAS DE ACORDO E GERAR O BOARD
-            const response = await connection.invoke("StartGame", roomName);
-
-            console.log(response);
-
-
-
-
+        if (c.connectionId != null) navigate(`/chess-board/${actualRoomName}`);
       }
     } catch (error) {
       console.error(error);
     }
   };
 
-  const make = async () => {
-    if(connection){
+  const handleRoomButtonClick = (actualRoomName: string) => {
+    // Update clickedRooms state
+    setClickedRooms(prevClickedRooms => [...prevClickedRooms, actualRoomName]);
 
-      const response = await connection.invoke("StartGame", roomName);
-
-      console.log(response);
-
-
+    // If two users have clicked, redirect
+    if (clickedRooms.length === 1) {
+      handleJoinRoom(actualRoomName);
     }
   };
 
@@ -100,44 +90,47 @@ const ChessLobby: React.FC = () => {
   };
 
   return (
-      <div className="ChessLobby">
-        <h2>Jogos de Xadrez</h2>
-        <div className="lobby-container">
-          <div className="lobby-options">
-            <button onClick={handleToggleNewGame}>
-              {isNewGame ? 'Entrar em um Jogo Existente' : 'Criar Novo Jogo'}
-            </button>
-            <button>Voltar para o Login</button>
+    <div className="ChessLobby">
+      <h2>Jogos de Xadrez</h2>
+      <div className="lobby-container">
+        <div className="lobby-options">
+          <button onClick={handleToggleNewGame}>
+            {isNewGame ? 'Entrar em um Jogo Existente' : 'Criar Novo Jogo'}
+          </button>
+          <button>Voltar para o Login</button>
+        </div>
+        {isNewGame ? (
+          <div className="new-game-form">
+            <input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Enter your name" />
+            <button onClick={createRoom}>Criar Jogo</button>
           </div>
-          {isNewGame ? (
-              <div className="new-game-form">
-                <input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Enter your name" />
-                <button onClick={createRoom}>Criar Jogo</button>
-              </div>
-          ) : (
-              <div className="existing-games">
-                <h3>Jogos Existentes</h3>
-                {roomList.length === 0 ? (
-                    <p>Nenhum jogo foi criado até o momento.</p>
-                ) : (
-                    <ul>
-                      {roomList.map((actualRoomName, index) => (
-                          <li key={index} onClick={() => handleJoinRoom(actualRoomName)}>{actualRoomName}</li>
-                      ))}
-                    </ul>
-                )}
-              </div>
-          )}
-        </div>
-        <div>
-          <h3>Jogadores na sala:</h3>
-          <ul>
-            {Object.entries(playerInRooms).map(([room, playerName], index) => (
-                <li key={index}>{playerName} - {room}</li>
-            ))}
-          </ul>
-        </div>
+        ) : (
+          <div className="existing-games">
+            <h3>Jogos Existentes</h3>
+            {roomList.length === 0 ? (
+              <p>Nenhum jogo foi criado até o momento.</p>
+            ) : (
+              <ul>
+                {roomList.map((actualRoomName, index) => (
+                  <li key={index} onClick={() => handleRoomButtonClick(actualRoomName)}>
+                    {actualRoomName}
+                    <button className='join-button' disabled={clickedRooms.includes(actualRoomName)}>Entrar na Sala</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
+      <div>
+        <h3>Jogadores na sala:</h3>
+        <ul>
+          {Object.entries(playerInRooms).map(([room, playerName], index) => (
+            <li key={index}>{playerName} - {room}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 };
 

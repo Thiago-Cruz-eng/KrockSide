@@ -4,12 +4,12 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background-color: #e0ddd8; /* Cor de fundo em um tom terroso claro */
-    color: #493d2b; /* Cor do texto em um tom terroso escuro */
+    background-color: #e0ddd8; 
+    color: #493d2b;
   }
   
   .lobby-container {
-    background: #c4b8aa; /* Cor de fundo em um tom terroso mais escuro */
+    background: #c4b8aa;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
@@ -21,9 +21,10 @@
   }
   
   .lobby-options button {
-    background-color: #7d6f54; /* Cor de fundo do botão em um tom terroso médio */
+    background-color: #7d6f54; 
     color: white;
     padding: 10px 15px;
+    margin-left: 10px;
     margin-bottom: 10px;
     border: none;
     border-radius: 4px;
@@ -32,11 +33,11 @@
   }
   
   .lobby-options button:hover {
-    background-color: #685b48; /* Cor de fundo do botão ao passar o mouse em um tom terroso mais escuro */
+    background-color: #685b48; 
   }
   
   .new-game-form button {
-    background-color: #7d6f54; /* Cor de fundo do botão em um tom terroso médio */
+    background-color: #7d6f54;
     color: white;
     padding: 10px 15px;
     border: none;
@@ -46,7 +47,7 @@
   }
   
   .new-game-form button:hover {
-    background-color: #685b48; /* Cor de fundo do botão ao passar o mouse em um tom terroso mais escuro */
+    background-color: #685b48; 
   }
   
   .existing-games {
@@ -64,7 +65,7 @@
   }
   
   .existing-games li {
-    background-color: #a4937a; /* Cor de fundo da lista em um tom terroso mais escuro */
+    background-color: #a4937a;
     margin-bottom: 5px;
     padding: 8px;
     border-radius: 4px;
@@ -72,6 +73,9 @@
   }
   
   .existing-games li:hover {
-    background-color: #8c7561; /* Cor de fundo da lista ao passar o mouse em um tom terroso mais escuro */
+    background-color: #8c7561; 
   }
   
+  .join-button {
+    margin-left: 120px;
+  }
