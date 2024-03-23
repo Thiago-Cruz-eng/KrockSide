@@ -3,10 +3,10 @@ import Piece from './ChessPiece';
 class Position {
     row: number;
     column: number;
-    squareColor: 'Black' | 'White';
+    squareColor: string;
     piece: Piece | undefined;
 
-    constructor(row: number, column: number, squareColor: "Black" | "White", piece: Piece | undefined) {
+    constructor(row: number, column: number, squareColor: string, piece: Piece | undefined) {
         this.row = row;
         this.column = column;
         this.squareColor = squareColor;

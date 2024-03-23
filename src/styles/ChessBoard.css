@@ -1,6 +1,6 @@
 .chessboard {
-  /*display: flex;*/
-  /*flex-direction: column;*/
+  display: flex;
+  flex-direction: column;
   background-color: #6a5b48;
 
 }
@@ -9,13 +9,13 @@
   display: flex;
 }
 
-.Black {
+.black {
   width: 110px;
   height: 110px;
   background-color: #965656;
 }
 
-.White {
+.white {
   width: 110px;
   height: 110px;
   background-color: #eeeed2;

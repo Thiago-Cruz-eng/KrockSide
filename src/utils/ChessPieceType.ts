@@ -1,10 +1,10 @@
 enum ChessPieceType {
     Pawn = 'Pawn',
-    Rook = 'Rook',
-    Knight = 'Knight',
     Bishop = 'Bishop',
-    Queen = 'Queen',
+    Knight = 'Knight',
+    Rook = 'Rook',
     King = 'King',
+    Queen = 'Queen',
 }
 
 export default ChessPieceType;

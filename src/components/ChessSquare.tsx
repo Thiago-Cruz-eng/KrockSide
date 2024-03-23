@@ -5,9 +5,11 @@ import * as signalR from "@microsoft/signalr";
 import position from "../utils/Position";
 import {useSignalR} from "./SignalRContext";
 import ChessPiece from "../utils/ChessPiece";
+import chessPiece from "../utils/ChessPiece";
+import Position from "../utils/Position";
 
 interface ChessSquareProps {
-    color: 'Black' | 'White';
+    color: string;
     row: number;
     column: number;
     piece?: Piece;
@@ -70,15 +72,14 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,pi
             console.log(connection)
 
             let x = "ahla"
-            let chessPiece = new ChessPiece(piece!.type, color, piece!.isInCheckState)
-            let pos = new position(row, column, chessPiece!.color, chessPiece)
+
             console.log(piece)
             if(connection){
-                console.log(pos)
-                const response = await connection.invoke("SendPossiblesMove", { x, pos });
-                if (response) {
-                    console.log(response);
-                }
+                // sconsole.log(pos)
+                // const response = await connection.invoke("SendPossiblesMove", { x, pos });
+                // if (response) {
+                //     console.log(response);
+                // }
             }
         } catch (err) {
             console.error(err);
@@ -117,11 +118,11 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,pi
             >
                 {piece && (
                     <img
-                        src={process.env.PUBLIC_URL + `${pieceName}.png`}
+                        src={process.env.PUBLIC_URL + `${piece.Color}-${piece.Type}.png`}
                         alt={"piece"}
                         draggable="true"
                         onDragStart={onDragStart}
-                        className={`chess-piece ${getSizeClass(`${pieceName}`)}`}
+                        className={`chess-piece ${getSizeClass(`$${piece.Color}-${piece.Type}`)}`}
                     />
                 )}
             </div>
