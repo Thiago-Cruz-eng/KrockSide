@@ -19,7 +19,6 @@ const ChessLobby: React.FC = () => {
       connection.start()
           .then(() => {
             console.log('Connection established.');
-            registerEventHandlers();
             handleGetRoom();
             handleGetPlayerInRoom();
           })
@@ -88,10 +87,16 @@ const ChessLobby: React.FC = () => {
         if (!user.userName) return;
 
         await connection.invoke("JoinRoom", user.userName, actualRoomName)
+        setTimeout(() => {
+          console.log(playerInRooms)
+        }, 1500)
 
-        // if (playerInRooms[actualRoomName].length === 2) {
-        //   navigate(`/chess-board/${actualRoomName}/${id}`);
-        // }
+        let playersInRoom: number = await connection.invoke("GetPlayersInRoom", actualRoomName)
+        console.log(playersInRoom)
+
+        if (playersInRoom === 2) {
+          navigate(`/chess-board/${actualRoomName}/${id}`);
+        }
       }
     } catch (error) {
       console.error("Error joining room:", error);
@@ -103,8 +108,6 @@ const ChessLobby: React.FC = () => {
       if (connection) {
         await connection.invoke("CreateRoom", roomName);
         handleToggleNewGame();
-        handleGetRoom();
-        handleGetPlayerInRoom()
       }
     } catch (error) {
       console.error("Error creating room:", error);
