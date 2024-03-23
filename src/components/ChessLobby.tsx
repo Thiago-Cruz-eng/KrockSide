@@ -53,8 +53,17 @@ const ChessLobby: React.FC = () => {
   const handleGetPlayerInRoom = async () => {
     try {
       if (connection) {
-        const playersInRoom = await connection.invoke("GetPlayersInEachRoom");
-        setPlayerInRooms(playersInRoom);
+        const updatedPlayersInRoom: { [key: string]: string[] } = {};
+        const playersInRoom: { [key: string]: string } = await connection.invoke("GetPlayersInEachRoom");
+        Object.keys(playersInRoom).forEach(room => {
+          const playerName = playersInRoom[room];
+          if (!updatedPlayersInRoom[room]) {
+            updatedPlayersInRoom[room] = [playerName];
+          } else {
+            updatedPlayersInRoom[room].push(playerName);
+          }
+        });
+        setPlayerInRooms(updatedPlayersInRoom);
         console.log(playersInRoom)
       }
     } catch (error) {
@@ -72,7 +81,7 @@ const ChessLobby: React.FC = () => {
         console.log(c)
         setPlayerInRooms({[actualRoomName]: [user.userName]});
         console.log(playerInRooms);
-
+        handleGetPlayerInRoom()
         if (playerInRooms[actualRoomName].length === 2) {
           navigate(`/chess-board/${actualRoomName}/${id}`);
         }
@@ -88,6 +97,7 @@ const ChessLobby: React.FC = () => {
         await connection.invoke("CreateRoom", roomName);
         handleToggleNewGame();
         handleGetRoom();
+        handleGetPlayerInRoom()
       }
     } catch (error) {
       console.error("Error creating room:", error);
