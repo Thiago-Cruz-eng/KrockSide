@@ -24,18 +24,28 @@ const ChessLobby: React.FC = () => {
             handleGetPlayerInRoom();
           })
           .catch(error => console.error("Error connecting:", error));
+
+      connection.on("CreateRoom", (newRoom: string) => {
+        setRoomList(prevRoomList => ({
+          ...prevRoomList,
+          [newRoom]: newRoom
+        }));
+      });
+      connection.on("PlayerJoined", (player) => {
+        handleGetPlayerInRoom()
+        // const { roomName, userName } = player; // Destructure roomName and userName from the received player object
+        // console.log("Player joined:", player);
+        // setPlayerInRooms(prevState => ({
+        //   ...prevState,
+        //   [roomName]: [...(prevState[roomName] || []), userName] // Append the userName to the array of players in the specified room
+        // }));
+      });
     }
   }, [connection]);
 
   const registerEventHandlers = () => {
     if (connection) {
-      connection.on("PlayerJoined", (player: { [key: string]: string }) => {
-        console.log("Player joined:", player);
-        setPlayerInRooms(prevState => ({
-          ...prevState,
-          [player.roomName]: [...(prevState[player.roomName] || []), player.userName]
-        }));
-      });
+
     }
   };
 
@@ -55,12 +65,12 @@ const ChessLobby: React.FC = () => {
       if (connection) {
         const updatedPlayersInRoom: { [key: string]: string[] } = {};
         const playersInRoom: { [key: string]: string } = await connection.invoke("GetPlayersInEachRoom");
-        Object.keys(playersInRoom).forEach(room => {
-          const playerName = playersInRoom[room];
-          if (!updatedPlayersInRoom[room]) {
-            updatedPlayersInRoom[room] = [playerName];
+        Object.keys(playersInRoom).forEach(player => {
+          const roomName = playersInRoom[player];
+          if (!updatedPlayersInRoom[roomName]) {
+            updatedPlayersInRoom[roomName] = [player];
           } else {
-            updatedPlayersInRoom[room].push(playerName);
+            updatedPlayersInRoom[roomName].push(player);
           }
         });
         setPlayerInRooms(updatedPlayersInRoom);
@@ -77,14 +87,11 @@ const ChessLobby: React.FC = () => {
         const user = await UserController.getUser(id);
         if (!user.userName) return;
 
-        let c = await connection.invoke("JoinRoom", user.userName, actualRoomName)
-        console.log(c)
-        setPlayerInRooms({[actualRoomName]: [user.userName]});
-        console.log(playerInRooms);
-        handleGetPlayerInRoom()
-        if (playerInRooms[actualRoomName].length === 2) {
-          navigate(`/chess-board/${actualRoomName}/${id}`);
-        }
+        await connection.invoke("JoinRoom", user.userName, actualRoomName)
+
+        // if (playerInRooms[actualRoomName].length === 2) {
+        //   navigate(`/chess-board/${actualRoomName}/${id}`);
+        // }
       }
     } catch (error) {
       console.error("Error joining room:", error);
