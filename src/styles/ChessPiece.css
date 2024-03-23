@@ -1,10 +1,9 @@
 .chess-piece {
     user-select: none;
-    margin-left: 30px;
 }
 
 .small {
-    width: 50px;
+    width: 40px;
     height: 60px;
     margin-top: 40px
 }

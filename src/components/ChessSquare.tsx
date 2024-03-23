@@ -1,3 +1,4 @@
+import "../styles/ChessSquare.css"
 import "../styles/ChessPiece.css"
 import Piece from "../utils/ChessPiece";
 import {useEffect, useRef, useState} from "react";
@@ -9,14 +10,14 @@ import chessPiece from "../utils/ChessPiece";
 import Position from "../utils/Position";
 
 interface ChessSquareProps {
-    color: string;
+    color: string |undefined;
     row: number;
     column: number;
-    piece?: Piece;
-    pieceName: string
+    piece?: Piece | null;
+    squareColor: string | null | undefined
 }
 
-const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,pieceName}) => {
+const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,squareColor}) => {
     const squareRef = useRef<HTMLDivElement>(null);
     const connectionOfWebSocket = useSignalR();
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
@@ -67,13 +68,14 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,pi
         }, 500);
     };
 
-    const NoClickRapa = async (row: number, column: number, piece: Piece | undefined) => {
+    const NoClickRapa = async (row: number, column: number, piece: Piece | undefined | null) => {
         try {
             console.log(connection)
 
             let x = "ahla"
 
-            console.log(piece)
+            var pos = new position(row, column, squareColor, piece)
+            console.log(pos)
             if(connection){
                 // sconsole.log(pos)
                 // const response = await connection.invoke("SendPossiblesMove", { x, pos });
@@ -118,11 +120,11 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,pi
             >
                 {piece && (
                     <img
-                        src={process.env.PUBLIC_URL + `${piece.Color}-${piece.Type}.png`}
+                        src={"../../" +process.env.PUBLIC_URL + `${piece.Color}-${piece.Type}.png`}
                         alt={"piece"}
                         draggable="true"
                         onDragStart={onDragStart}
-                        className={`chess-piece ${getSizeClass(`$${piece.Color}-${piece.Type}`)}`}
+                        className={`chess-piece ${getSizeClass(`${piece.Color}-${piece.Type}`)}`}
                     />
                 )}
             </div>

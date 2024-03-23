@@ -1,8 +1,7 @@
 .chessboard {
   display: flex;
   flex-direction: column;
-  background-color: #6a5b48;
-
+  width: 880px; /* Adjust as needed */
 }
 
 .row {

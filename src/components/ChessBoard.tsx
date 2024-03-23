@@ -7,8 +7,8 @@ import ChessSquare from "./ChessSquare";
 import Piece from "../utils/ChessPiece";
 
 interface Square {
-    SquareColor: string;
-    Piece: Piece;
+    SquareColor: string | undefined;
+    Piece: Piece | null;
     Row: number;
     Column: number;
 }
@@ -18,6 +18,7 @@ const ChessBoard: React.FC = () => {
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
     const { roomName } = useParams();
     const [squares, setSquares] = useState<Square[]>([]);
+    const [loading, setLoading] = useState(true); // State to track loading status
 
     useEffect(() => {
         setConnection(connectionOfWebSocket);
@@ -32,6 +33,7 @@ const ChessBoard: React.FC = () => {
                         const response = await connection.invoke("StartGame", roomName);
                         console.log(JSON.parse(response));
                         setSquares(JSON.parse(response))
+                        setLoading(false);
                     } catch (error) {
                         console.error("Error invoking StartGame:", error);
                     }
@@ -41,19 +43,28 @@ const ChessBoard: React.FC = () => {
         }
     }, [connection, roomName]);
 
-    return (
+    // Render only when loading is false
+    if (loading) {
+        return <div>Loading...</div>;
+    }
 
+    return (
         <div className="chessboard">
-            {squares.map((square, index) => (
-                <div key={index} className="row">
-                        <ChessSquare
-                            key={`${index}-${index}`}
-                            color= {square.SquareColor}
-                            column={square.Column}
-                            row={square.Row}
-                            pieceName={square.Piece.Type}
-                            piece={square.Piece}
-                        />
+            {[...Array(8)].map((_, col) => (
+                <div key={col} className="row">
+                    {[...Array(8)].map((_, row) => {
+                        const square = squares.find(square => square.Row === row && square.Column === col);
+                        return (
+                            <ChessSquare
+                                key={`${row}-${col}`}
+                                color={square ? square.SquareColor : ''}
+                                column={col}
+                                row={row}
+                                squareColor={square ? square.SquareColor : ''}
+                                piece={square ? square.Piece : null}
+                            />
+                        );
+                    })}
                 </div>
             ))}
         </div>
