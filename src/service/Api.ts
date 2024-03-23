@@ -5,7 +5,7 @@ interface ApiResponse<T> {
     data: T;
 }
 
-const baseURL = 'https://localhost:44380/';
+const baseURL = 'https://localhost:7111/';
 
 const axiosInstance = axios.create({
     baseURL,

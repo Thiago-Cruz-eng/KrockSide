@@ -10,7 +10,7 @@ export const SignalRProvider: React.FC<React.PropsWithChildren<{}>> = ({ childre
 
     useEffect(() => {
         const newConnection = new signalR.HubConnectionBuilder()
-            .withUrl("https://localhost:44380/chesshub")
+            .withUrl("https://localhost:7111/chesshub")
             .build();
 
         newConnection.start().then(function () {

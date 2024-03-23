@@ -1,46 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import '../styles/ChessLobby.css';
-import * as signalR from "@microsoft/signalr";
-import { useNavigate, useParams  } from "react-router-dom";
-import { useSignalR } from "./SignalRContext";
-import UserController from '../service/ComunicationApi'; // Adjust the import path as necessary
-
+// Import statements...
+import "../styles/ChessLobby.css"
+import {useEffect, useState} from "react";
+import {useNavigate, useParams} from "react-router-dom";
+import {useSignalR} from "./SignalRContext";
+import UserController from "../service/ComunicationApi";
 
 const ChessLobby: React.FC = () => {
-  const connectionOfWebSocket = useSignalR();
+  const connection = useSignalR();
   const [isNewGame, setIsNewGame] = useState<boolean>(false);
-  const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
   const [roomName, setRoomName] = useState<string>('');
-  const [roomList, setRoomList] = useState< {[key: string]: string}>({});
-  const [playerInRooms, setPlayerInRooms] = useState<{ [key: string]: string }>({});
-  const [clickedRooms, setClickedRooms] = useState<string[]>([]);
+  const [roomList, setRoomList] = useState<{ [key: string]: string }>({});
+  const [playerInRooms, setPlayerInRooms] = useState<{ [key: string]: string[] }>({});
   const navigate = useNavigate();
-  let { id } = useParams();
+  const { id } = useParams();
 
   useEffect(() => {
-    if(!connection) {
-      setConnection(connectionOfWebSocket);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (connection != null) {
+    if (connection) {
       connection.start()
-        .then(() => {
-          console.log('Connection established.');
-          handleGetRoom();
-          registerEventHandlers();
-        })
-        .catch(error => console.error("DEU RUIM", error));
+          .then(() => {
+            console.log('Connection established.');
+            registerEventHandlers();
+            handleGetRoom();
+            handleGetPlayerInRoom();
+          })
+          .catch(error => console.error("Error connecting:", error));
     }
-  },[connection]);
+  }, [connection]);
 
   const registerEventHandlers = () => {
     if (connection) {
- 
       connection.on("PlayerJoined", (player: { [key: string]: string }) => {
-        console.log(player);
-        setPlayerInRooms(player);
+        console.log("Player joined:", player);
+        setPlayerInRooms(prevState => ({
+          ...prevState,
+          [player.roomName]: [...(prevState[player.roomName] || []), player.userName]
+        }));
       });
     }
   };
@@ -50,50 +44,53 @@ const ChessLobby: React.FC = () => {
       if (connection) {
         const rooms = await connection.invoke("GetAvailableRoom");
         setRoomList(rooms);
-        console.log(rooms);
-        
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error getting rooms:", error);
     }
   };
 
-  const handleJoinRoom = async (actualRoomName: string, ) => {
+  const handleGetPlayerInRoom = async () => {
     try {
-      setClickedRooms(prevClickedRooms => [...prevClickedRooms, actualRoomName]);
-
-      console.log(connection)
       if (connection) {
-        console.log();
-        
-        var user = await UserController.getUser(id);
-        console.log(user);
+        const playersInRoom = await connection.invoke("GetPlayersInEachRoom");
+        setPlayerInRooms(playersInRoom);
+        console.log(playersInRoom)
+      }
+    } catch (error) {
+      console.error("Error getting players in room:", error);
+    }
+  };
 
-        if(user.userName == null) return
+  const handleJoinRoom = async (actualRoomName: string) => {
+    try {
+      if (connection) {
+        const user = await UserController.getUser(id);
+        if (!user.userName) return;
 
         let c = await connection.invoke("JoinRoom", user.userName, actualRoomName)
         console.log(c)
-        setPlayerInRooms({[actualRoomName]: user.userName});
+        setPlayerInRooms({[actualRoomName]: [user.userName]});
         console.log(playerInRooms);
-        if (clickedRooms.length === 1) {
-          if (c.connectionId != null) navigate(`/chess-board/${actualRoomName}/${id}`);
+
+        if (playerInRooms[actualRoomName].length === 2) {
+          navigate(`/chess-board/${actualRoomName}/${id}`);
         }
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error joining room:", error);
     }
   };
 
   const createRoom = async () => {
-    console.log(connection)
     try {
       if (connection) {
         await connection.invoke("CreateRoom", roomName);
         handleToggleNewGame();
-        await handleGetRoom();
+        handleGetRoom();
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error creating room:", error);
     }
   };
 
@@ -102,53 +99,51 @@ const ChessLobby: React.FC = () => {
   };
 
   return (
-    <div className="ChessLobby">
-      <h2>Jogos de Xadrez</h2>
-      <div className="lobby-container">
-        <div className="lobby-options">
-          <button onClick={handleToggleNewGame}>
-            {isNewGame ? 'Entrar em um Jogo Existente' : 'Criar Novo Jogo'}
-          </button>
-          <button>Voltar para o Login</button>
+      <div className="ChessLobby">
+        <h2>Jogos de Xadrez</h2>
+        <div className="lobby-container">
+          <div className="lobby-options">
+            <button onClick={handleToggleNewGame}>
+              {isNewGame ? 'Entrar em um Jogo Existente' : 'Criar Novo Jogo'}
+            </button>
+            <button>Voltar para o Login</button>
+          </div>
+          {isNewGame ? (
+              <div className="new-game-form">
+                <input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Enter room name" />
+                <button onClick={createRoom}>Criar Jogo</button>
+              </div>
+          ) : (
+              <div className="existing-games">
+                <h3>Jogos Existentes</h3>
+                {Object.keys(roomList).length === 0 ? (
+                    <p>Nenhum jogo foi criado até o momento.</p>
+                ) : (
+                    <ul>
+                      {Object.entries(roomList).map(([roomId, roomName]) => (
+                          <li key={roomId}>
+                            {roomName}
+                            <button onClick={() => handleJoinRoom(roomName)} className='join-button' disabled={playerInRooms[roomName]?.length === 2}>
+                              Entrar na Sala
+                            </button>
+                            {playerInRooms[roomName] && (
+                                <div>
+                                  <p>Jogadores na sala:</p>
+                                  <ul>
+                                    {playerInRooms[roomName].map((player, index) => (
+                                        <li key={index}>{player}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                            )}
+                          </li>
+                      ))}
+                    </ul>
+                )}
+              </div>
+          )}
         </div>
-        {isNewGame ? (
-          <div className="new-game-form">
-            <input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Enter your name" />
-            <button onClick={createRoom}>Criar Jogo</button>
-          </div>
-        ) : (
-          <div className="existing-games">
-            <h3>Jogos Existentes</h3>
-            {Object.keys(roomList).length === 0 ? (
-              <p>Nenhum jogo foi criado até o momento.</p>
-            ) : (
-              <ul>
-                {Object.values(roomList).map((actualRoomName, index) => (
-                  <React.Fragment key={index}>
-                    <li>
-                      {actualRoomName}
-                      <button onClick={() => handleJoinRoom(actualRoomName)} className='join-button' disabled={clickedRooms.includes(actualRoomName)}>
-                        Entrar na Sala
-                      </button>
-                    </li>
-                    {Array.isArray(playerInRooms[actualRoomName]) && (
-                      <li>
-                        Jogadores na sala:
-                        <ul>
-                          {Object.keys(playerInRooms).map((playerName, innerIndex) => (
-                            <li key={innerIndex}>{playerName} </li> 
-                          ))}
-                        </ul>
-                      </li>
-                    )}
-                  </React.Fragment>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
       </div>
-    </div>
   );
 };
 
