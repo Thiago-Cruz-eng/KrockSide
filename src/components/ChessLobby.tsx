@@ -4,6 +4,7 @@ import {useEffect, useState} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {useSignalR} from "./SignalRContext";
 import UserController from "../service/ComunicationApi";
+import jwt from "jsonwebtoken";
 
 const ChessLobby: React.FC = () => {
   const connection = useSignalR();
@@ -86,13 +87,33 @@ const ChessLobby: React.FC = () => {
         const user = await UserController.getUser(id);
         if (!user.userName) return;
 
+        const accessToken = localStorage.getItem("accessToken");
+        if(accessToken == null) return
+        const decodedToken = jwt.decode(accessToken);
+        var token = JSON.parse(atob(decodedToken!.split('.')[1]))
+        if(token.email === user.email){
+
+          const verifyValidate = await UserController.verifyValidation({
+            AccessToken: accessToken,
+            UserId: user.email
+          } );
+
+          if(!verifyValidate) return
+        }
+
         await connection.invoke("JoinRoom", user.userName, actualRoomName)
-        setTimeout(() => {
-          console.log(playerInRooms)
-        }, 1500)
+        const validationUser = await UserController.getValidation({
+          AccessToken: accessToken,
+          UserId: user.email
+        });
+
+        const updateValidation = await UserController.updateValidation(validationUser.Id, {
+          AccessToken: accessToken, PieceColor: "null", Room: actualRoomName, UserEmail: user.email, UserId: id!.toString()
+        });
+
+        if(!updateValidation) return
 
         let playersInRoom: number = await connection.invoke("GetPlayersInRoom", actualRoomName)
-        console.log(playersInRoom)
 
         if (playersInRoom === 2) {
           navigate(`/chess-board/${actualRoomName}/${id}`);

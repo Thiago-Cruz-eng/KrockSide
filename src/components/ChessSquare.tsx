@@ -5,9 +5,7 @@ import {useEffect, useRef, useState} from "react";
 import * as signalR from "@microsoft/signalr";
 import position from "../utils/Position";
 import {useSignalR} from "./SignalRContext";
-import ChessPiece from "../utils/ChessPiece";
-import chessPiece from "../utils/ChessPiece";
-import Position from "../utils/Position";
+import {useParams} from "react-router-dom";
 
 interface ChessSquareProps {
     color: string |undefined;
@@ -21,6 +19,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
     const squareRef = useRef<HTMLDivElement>(null);
     const connectionOfWebSocket = useSignalR();
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
+    const { id, roomName} = useParams()
 
     useEffect(() => {
         setConnection(connectionOfWebSocket);
@@ -71,17 +70,11 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
     const NoClickRapa = async (row: number, column: number, piece: Piece | undefined | null) => {
         try {
             console.log(connection)
-
-            let x = "ahla"
-
             var pos = new position(row, column, squareColor, piece)
             console.log(pos)
             if(connection){
-                // sconsole.log(pos)
-                // const response = await connection.invoke("SendPossiblesMove", { x, pos });
-                // if (response) {
-                //     console.log(response);
-                // }
+                const response = await connection.invoke("SendPossiblesMoves", id, row, column );
+                console.log(response)
             }
         } catch (err) {
             console.error(err);
