@@ -59,30 +59,38 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
         animatePieceMovement(startRow, startColumn, targetRow, targetColumn, piece);
     };
 
-    const animatePieceMovement = (startRow: number, startColumn: number, endRow: number, endColumn: number, piece: Piece) => {
-        console.log(startRow, startColumn, endRow, endColumn)
-        const startPosition = squareRef.current?.getBoundingClientRect();
-        if (!startPosition) return;
+    const animatePieceMovement = async (startRow: number, startColumn: number, endRow: number, endColumn: number, piece: Piece) => {
+        console.log(startRow, startColumn, endRow, endColumn, piece)
+        if(connection){
+            const accessToken = localStorage.getItem(`accessToken${id}`);
+            const decodedToken: DecodedToken = jwtDecode(accessToken ?? "");
+            const currentDate = new Date();
 
-        const movingPiece = document.createElement("img");
-        movingPiece.src = `${process.env.PUBLIC_URL}/${piece}.png`;
-        movingPiece.style.position = "absolute";
-        movingPiece.style.left = `${startPosition.left}px`;
-        movingPiece.style.top = `${startPosition.top}px`;
-        movingPiece.style.transition = "all 0.5s ease";
+            const day = currentDate.getUTCDate();
+            const month = currentDate.getUTCMonth() + 1;
+            const year = currentDate.getUTCFullYear();
 
-        document.body.appendChild(movingPiece);
+            const dateString = `${year}-${month}-${day}`;
 
-        setTimeout(() => {
-            const endPosition = squareRef.current?.getBoundingClientRect();
-            if (!endPosition) return;
-            movingPiece.style.left = `${endPosition.left}px`;
-            movingPiece.style.top = `${endPosition.top}px`;
-        }, 0);
+            console.log(decodedToken)
+            const verifyValidate = await UserController.getValidationCanMove({
+                AccessToken: accessToken ?? "",
+                Day: dateString,
+                PieceColor: piece?.Color ?? "",
+                Room: roomName ?? "",
+                UserEmail: decodedToken.emailAddress,
+                UserId: decodedToken.sub,
+            } );
+            if(!verifyValidate) return new Error("User without permission to play")
 
-        setTimeout(() => {
-            movingPiece.remove();
-        }, 500);
+            const user = await UserController.getUser(id);
+            console.log(user.userName, roomName, startRow, endRow, startColumn, endColumn, highlighted);
+            
+            const response:boolean = await connection.invoke("MakeMove", user.userName, roomName, startRow, endRow, startColumn, endColumn, highlighted);
+            const response2 = await connection.invoke("GetPositionInBoard", roomName, endRow, endColumn);
+            console.log(response)        
+        }
+       
     };
 
     const NoClickRapa = async (row: number, column: number, piece: Piece | undefined | null) => {
