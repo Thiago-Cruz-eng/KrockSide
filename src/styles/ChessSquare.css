@@ -16,5 +16,6 @@
 }
 
 .highlighted {
-    background-color: #000;
+    background-color: #79c036;
+    opacity: 0.5;
 }

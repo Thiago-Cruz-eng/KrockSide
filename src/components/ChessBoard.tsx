@@ -11,6 +11,15 @@ interface Square {
     Piece: Piece | null;
     Row: number;
     Column: number;
+    HighlightedPosition: boolean
+    onSelectSquare: (row: number, column:number) => any
+}
+
+interface PossibleMoves {
+    column: number;
+    piece: any;
+    row: number;
+    squareColor: number;
 }
 
 const ChessBoard: React.FC = () => {
@@ -18,14 +27,13 @@ const ChessBoard: React.FC = () => {
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
     const { roomName } = useParams();
     const [squares, setSquares] = useState<Square[]>([]);
-    const [loading, setLoading] = useState(true); // State to track loading status
+    const [loading, setLoading] = useState(true); 
 
     useEffect(() => {
         setConnection(connectionOfWebSocket);
     }, []);
 
     useEffect(() => {
-        // Ensure connection exists before invoking
         if (connection) {
             setTimeout(() => {
                 const startGame = async () => {
@@ -43,7 +51,26 @@ const ChessBoard: React.FC = () => {
         }
     }, [connection, roomName]);
 
-    // Render only when loading is false
+    const handleSquare:any = (possibleMove: PossibleMoves[]): void => {
+        setSquares(prevSquares => {
+            return prevSquares.map(square => {
+                const foundMove = possibleMove.find(move => move.column === square.Column && move.row === square.Row);
+                if (foundMove) {
+                    return {
+                        ...square,
+                        HighlightedPosition: true
+                    };
+                } else {
+                    return {
+                        ...square,
+                        HighlightedPosition: false
+                    };
+                }
+            });
+        });
+      
+    }
+
     if (loading) {
         return <div>Loading...</div>;
     }
@@ -62,6 +89,8 @@ const ChessBoard: React.FC = () => {
                                 row={row}
                                 squareColor={square ? square.SquareColor : ''}
                                 piece={square ? square.Piece : null}
+                                highlighted= {square?.HighlightedPosition ? false : true}
+                                onSelectSquare={handleSquare}
                             />
                         );
                     })}

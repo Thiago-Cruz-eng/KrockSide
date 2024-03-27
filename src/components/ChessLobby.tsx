@@ -46,21 +46,9 @@ const ChessLobby: React.FC = () => {
       });
       connection.on("PlayerJoined", (player) => {
         handleGetPlayerInRoom()
-        // const { roomName, userName } = player; // Destructure roomName and userName from the received player object
-        // console.log("Player joined:", player);
-        // setPlayerInRooms(prevState => ({
-        //   ...prevState,
-        //   [roomName]: [...(prevState[roomName] || []), userName] // Append the userName to the array of players in the specified room
-        // }));
       });
     }
   }, [connection]);
-
-  const registerEventHandlers = () => {
-    if (connection) {
-
-    }
-  };
 
   const handleGetRoom = async () => {
     try {

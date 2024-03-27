@@ -15,6 +15,8 @@ interface ChessSquareProps {
     column: number;
     piece?: Piece | null;
     squareColor: string | null | undefined
+    highlighted: boolean;
+    onSelectSquare: (possibleMove: PossibleMoves) => any
 }
 interface DecodedToken {
     sub: string;
@@ -30,25 +32,16 @@ interface PossibleMoves {
     squareColor: number;
 }
 
-const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,squareColor}) => {
+const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,squareColor, highlighted,  onSelectSquare}) => {
     const squareRef = useRef<HTMLDivElement>(null);
     const connectionOfWebSocket = useSignalR();
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
     const { id, roomName} = useParams()
     const [possibleMove, setPossibleMove] = useState<PossibleMoves[]>([]);
-    const [highlighted, setHighlighted] = useState<boolean>(false); // State to highlight the square
-
 
     useEffect(() => {
         setConnection(connectionOfWebSocket);
     }, []);
-
-    useEffect(() => {
-        // Check if the square's position matches any positions received from the backend
-        const isHighlighted = possibleMove.some(move => move.row === row && move.column === column);
-        setHighlighted(isHighlighted);
-    }, [possibleMove, row, column]);
-
 
     const onDragStart = (e: React.DragEvent) => {
         console.log("inciei o movimento")
@@ -124,6 +117,9 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
                 const response : PossibleMoves = await connection.invoke("SendPossiblesMoves", user.userName, roomName, row, column );
                 console.log(response)
                 setPossibleMove([response]);
+                setTimeout(() => {
+                    handleSquareClick(response);
+                }, 100)
             }
         } catch (err) {
             console.error(err);
@@ -152,13 +148,21 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
                 return '';
         }
     };
+
+    const handleSquareClick = (possibleMove: PossibleMoves) => {
+        console.log("Passando para o pai", possibleMove);
+        
+        onSelectSquare(possibleMove);            
+    }
     return (
         <>
             <div
-                className={`chess-square ${color} ${highlighted ? 'highlighted' : ''}`} // Apply highlighted class conditionally
+                className={`chess-square ${color} ${highlighted ? '' : 'highlighted'}`}
                 onDragOver={onDragOver}
                 onDrop={(e) => onDrop(e, row, column)}
-                onClick={() => NoClickRapa(row, column, piece)}
+                onClick={() => {
+                    NoClickRapa(row, column, piece);
+                }}
             >
                 {piece && (
                     <img
@@ -166,9 +170,9 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
                         alt={"piece"}
                         draggable="true"
                         onDragStart={onDragStart}
-                        className={`chess-piece ${getSizeClass(`${piece.Color}-${piece.Type}`)}`}
+                        className={`chess-piece ${getSizeClass(`${piece.Color}-${piece.Type}`)}`}                    
                     />
-                )}
+                )}                
             </div>
         </>
     );
