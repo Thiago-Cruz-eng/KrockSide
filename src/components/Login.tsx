@@ -28,9 +28,10 @@ const Login = () => {
         email: formData.email,
         password: formData.password,
       });
-      if (response.Success) {
+      console.log(response)
+      if (response.accessToken != null) {
         let id = response.userId
-        localStorage.setItem("accessToken", response.AccessToken);
+        localStorage.setItem(`accessToken${response.userId}`, response.accessToken);
         navigate(`/chess-lobby/${id}`);
       }
       console.log("email ou senha incorreto")

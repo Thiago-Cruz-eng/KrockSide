@@ -51,11 +51,19 @@ interface GetUserResponse {
 }
 
 interface LoginResponse {
-    Success: boolean;
+    success: boolean;
     email: string;
-    AccessToken: string;
+    accessToken: string;
     message: string;
     userId: string;
+}
+interface ValidationCanMoveRequest{
+    AccessToken: string;
+    UserId: string;
+    Room: string;
+    PieceColor: string;
+    UserEmail: string;
+    Day: string
 }
 
 class UserController {
@@ -113,13 +121,25 @@ class UserController {
 
     static async updateValidation(id: string, validateData: ValidationRequest): Promise<boolean> {
         try {
-            const response = await api.put<boolean>(`update-validation/${id}`, validateData);
+            const response = await api.get<boolean>(`update-validation/${validateData.UserId}/${validateData.AccessToken}/${validateData.PieceColor}/${validateData.Room}`);
             return response.data;
 
         } catch (error) {
             console.error('Error logging in:', error);
             throw error;
         }
+    }
+
+    static async getValidationCanMove(validateData: ValidationCanMoveRequest): Promise<boolean> {
+    try {
+
+        const response = await api.get<boolean>(`/get-validation-can-move/${validateData.UserId}/${validateData.AccessToken}/${validateData.PieceColor}/${validateData.Room}/${validateData.UserEmail}/${validateData.Day}`);
+        return response.data;
+
+    } catch (error) {
+        console.error('Error logging in:', error);
+        throw error;
+    }
     }
 }
 

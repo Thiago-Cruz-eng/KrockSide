@@ -6,6 +6,8 @@ import * as signalR from "@microsoft/signalr";
 import position from "../utils/Position";
 import {useSignalR} from "./SignalRContext";
 import {useParams} from "react-router-dom";
+import UserController from "../service/ComunicationApi";
+import {jwtDecode} from "jwt-decode";
 
 interface ChessSquareProps {
     color: string |undefined;
@@ -14,16 +16,39 @@ interface ChessSquareProps {
     piece?: Piece | null;
     squareColor: string | null | undefined
 }
+interface DecodedToken {
+    sub: string;
+    name: string;
+    jti: string;
+    emailAddress: string;
+    exp: number;
+}
+interface PossibleMoves {
+    column: number;
+    piece: any;
+    row: number;
+    squareColor: number;
+}
 
 const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,squareColor}) => {
     const squareRef = useRef<HTMLDivElement>(null);
     const connectionOfWebSocket = useSignalR();
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
     const { id, roomName} = useParams()
+    const [possibleMove, setPossibleMove] = useState<PossibleMoves[]>([]);
+    const [highlighted, setHighlighted] = useState<boolean>(false); // State to highlight the square
+
 
     useEffect(() => {
         setConnection(connectionOfWebSocket);
     }, []);
+
+    useEffect(() => {
+        // Check if the square's position matches any positions received from the backend
+        const isHighlighted = possibleMove.some(move => move.row === row && move.column === column);
+        setHighlighted(isHighlighted);
+    }, [possibleMove, row, column]);
+
 
     const onDragStart = (e: React.DragEvent) => {
         console.log("inciei o movimento")
@@ -73,8 +98,32 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
             var pos = new position(row, column, squareColor, piece)
             console.log(pos)
             if(connection){
-                const response = await connection.invoke("SendPossiblesMoves", id, row, column );
+                const accessToken = localStorage.getItem(`accessToken${id}`);
+                const decodedToken: DecodedToken = jwtDecode(accessToken ?? "");
+                const currentDate = new Date();
+
+                const day = currentDate.getUTCDate();
+                const month = currentDate.getUTCMonth() + 1;
+                const year = currentDate.getUTCFullYear();
+
+                const dateString = `${year}-${month}-${day}`;
+
+                console.log(decodedToken.emailAddress)
+                const verifyValidate = await UserController.getValidationCanMove({
+                    AccessToken: accessToken ?? "",
+                    Day: dateString,
+                    PieceColor: piece?.Color ?? "",
+                    Room: roomName ?? "",
+                    UserEmail: decodedToken.emailAddress,
+                    UserId: decodedToken.sub,
+                } );
+                if(!verifyValidate) return new Error("User without permission to play")
+
+                const user = await UserController.getUser(id);
+                console.log(user.userName)
+                const response : PossibleMoves = await connection.invoke("SendPossiblesMoves", user.userName, roomName, row, column );
                 console.log(response)
+                setPossibleMove([response]);
             }
         } catch (err) {
             console.error(err);
@@ -106,7 +155,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
     return (
         <>
             <div
-                className={`chess-square ${color}`}
+                className={`chess-square ${color} ${highlighted ? 'highlighted' : ''}`} // Apply highlighted class conditionally
                 onDragOver={onDragOver}
                 onDrop={(e) => onDrop(e, row, column)}
                 onClick={() => NoClickRapa(row, column, piece)}

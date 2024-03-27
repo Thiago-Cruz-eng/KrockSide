@@ -4,7 +4,15 @@ import {useEffect, useState} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {useSignalR} from "./SignalRContext";
 import UserController from "../service/ComunicationApi";
-import jwt from "jsonwebtoken";
+import {jwtDecode} from "jwt-decode"
+
+interface DecodedToken {
+  sub: string;
+  name: string;
+  jti: string;
+  emailAddress: string;
+  exp: number;
+}
 
 const ChessLobby: React.FC = () => {
   const connection = useSignalR();
@@ -14,6 +22,8 @@ const ChessLobby: React.FC = () => {
   const [playerInRooms, setPlayerInRooms] = useState<{ [key: string]: string[] }>({});
   const navigate = useNavigate();
   const { id } = useParams();
+  const [selectedColor, setSelectedColor] = useState<string>(''); // State to remember selected color
+
 
   useEffect(() => {
     if (connection) {
@@ -30,6 +40,9 @@ const ChessLobby: React.FC = () => {
           ...prevRoomList,
           [newRoom]: newRoom
         }));
+      });
+      connection.on("GameWillStart", (roomName: string) => {
+        navigate(`/chess-board/${roomName}/${id}`);
       });
       connection.on("PlayerJoined", (player) => {
         handleGetPlayerInRoom()
@@ -87,29 +100,35 @@ const ChessLobby: React.FC = () => {
         const user = await UserController.getUser(id);
         if (!user.userName) return;
 
-        const accessToken = localStorage.getItem("accessToken");
+        const accessToken = localStorage.getItem(`accessToken${id}`);
+        console.log(accessToken)
         if(accessToken == null) return
-        const decodedToken = jwt.decode(accessToken);
-        var token = JSON.parse(atob(decodedToken!.split('.')[1]))
-        if(token.email === user.email){
-
+        const decodedToken : DecodedToken = jwtDecode(accessToken);
+        if(decodedToken != null){
           const verifyValidate = await UserController.verifyValidation({
             AccessToken: accessToken,
-            UserId: user.email
+            UserId: decodedToken.sub
           } );
 
+          console.log(verifyValidate)
           if(!verifyValidate) return
         }
+        console.log(decodedToken)
 
-        await connection.invoke("JoinRoom", user.userName, actualRoomName)
         const validationUser = await UserController.getValidation({
           AccessToken: accessToken,
-          UserId: user.email
+          UserId: decodedToken.sub
         });
 
         const updateValidation = await UserController.updateValidation(validationUser.Id, {
-          AccessToken: accessToken, PieceColor: "null", Room: actualRoomName, UserEmail: user.email, UserId: id!.toString()
+          AccessToken: accessToken, PieceColor: selectedColor, Room: actualRoomName, UserEmail: user.email, UserId: id!.toString()
         });
+
+        console.log(user.userName, actualRoomName, selectedColor)
+
+        if(!updateValidation) return
+        await connection.invoke("JoinRoom", user.userName, actualRoomName)
+
 
         if(!updateValidation) return
 
@@ -177,6 +196,15 @@ const ChessLobby: React.FC = () => {
                                   </ul>
                                 </div>
                             )}
+                            {/* Buttons for selecting player color */}
+                            <div>
+                              <button onClick={() => setSelectedColor('black')} disabled={selectedColor === 'branco'}>
+                                Preto
+                              </button>
+                              <button onClick={() => setSelectedColor('white')} disabled={selectedColor === 'preto'}>
+                                Branco
+                              </button>
+                            </div>
                           </li>
                       ))}
                     </ul>
