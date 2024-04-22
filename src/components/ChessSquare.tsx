@@ -17,6 +17,7 @@ interface ChessSquareProps {
     squareColor: string | null | undefined
     highlighted: boolean;
     onSelectSquare: (possibleMove: PossibleMoves) => any
+    onChangeBoard: (change: boolean) => any
 }
 interface DecodedToken {
     sub: string;
@@ -32,7 +33,7 @@ interface PossibleMoves {
     squareColor: number;
 }
 
-const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,squareColor, highlighted,  onSelectSquare}) => {
+const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,squareColor, highlighted,  onSelectSquare, onChangeBoard}) => {
     const squareRef = useRef<HTMLDivElement>(null);
     const connectionOfWebSocket = useSignalR();
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
@@ -88,7 +89,10 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
             
             const response:boolean = await connection.invoke("MakeMove", user.userName, roomName, startRow, endRow, startColumn, endColumn, highlighted);
             const response2 = await connection.invoke("GetPositionInBoard", roomName, endRow, endColumn);
-            console.log(response)        
+            const response3 = await connection.invoke("GetPositionPlaced", roomName);
+            setTimeout(() => {
+                handleRerenderBoard(true)
+            }, 100)
         }
        
     };
@@ -161,6 +165,12 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
         console.log("Passando para o pai", possibleMove);
         
         onSelectSquare(possibleMove);            
+    }
+
+    const handleRerenderBoard = (change: boolean) => {
+        console.log("board mudou!!!!!!!!!!!!111", change);
+
+        onChangeBoard(change);
     }
     return (
         <>

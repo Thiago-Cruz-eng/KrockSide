@@ -5,6 +5,7 @@ import {useSignalR} from "./SignalRContext";
 import { useParams } from 'react-router-dom';
 import ChessSquare from "./ChessSquare";
 import Piece from "../utils/ChessPiece";
+import Position from "../utils/Position";
 
 interface Square {
     SquareColor: string | undefined;
@@ -39,7 +40,7 @@ const ChessBoard: React.FC = () => {
                 const startGame = async () => {
                     try {
                         const response = await connection.invoke("StartGame", roomName);
-                        console.log(JSON.parse(response));
+                        console.log(response);
                         setSquares(JSON.parse(response))
                         setLoading(false);
                     } catch (error) {
@@ -71,6 +72,26 @@ const ChessBoard: React.FC = () => {
       
     }
 
+    const handleChangeBoard:any = (change: boolean): void => {
+        if(change && connection) {
+            const rerenderGame = async () => {
+                try {
+                    console.log("@@@@@@@@@@@@@@###################")
+                    let response: string  = await connection.invoke("GetPositionPlaced", roomName);
+                    let squareMapped : Square[][] = JSON.parse(response)
+                    console.log(squareMapped.flatMap(innerArray => innerArray.concat()));
+                    setSquares(squareMapped.flatMap(innerArray => innerArray.concat()))
+                    setLoading(false);
+                } catch (error) {
+                    console.error("Error invoking StartGame:", error);
+                }
+                change = false;
+            };
+            rerenderGame()
+        }
+
+    }
+
     if (loading) {
         return <div>Loading...</div>;
     }
@@ -91,6 +112,7 @@ const ChessBoard: React.FC = () => {
                                 piece={square ? square.Piece : null}
                                 highlighted= {square?.HighlightedPosition ? false : true}
                                 onSelectSquare={handleSquare}
+                                onChangeBoard={handleChangeBoard}
                             />
                         );
                     })}
