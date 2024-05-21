@@ -40,7 +40,8 @@ const ChessBoard: React.FC = () => {
                 const startGame = async () => {
                     try {
                         const response = await connection.invoke("StartGame", roomName);
-                        console.log(response);
+                        console.log(JSON.parse(response));
+                        console.log("AQUIIIIIIII -------------------######################333");
                         setSquares(JSON.parse(response))
                         setLoading(false);
                     } catch (error) {
@@ -48,6 +49,11 @@ const ChessBoard: React.FC = () => {
                     }
                 };
                 startGame();
+                connection.on("BoardChange", (done) => {
+                    if(done) {
+                        startGame()
+                    }
+                });
             }, 1000)
         }
     }, [connection, roomName]);
@@ -77,10 +83,12 @@ const ChessBoard: React.FC = () => {
             const rerenderGame = async () => {
                 try {
                     console.log("@@@@@@@@@@@@@@###################")
-                    let response: string  = await connection.invoke("GetPositionPlaced", roomName);
-                    let squareMapped : Square[][] = JSON.parse(response)
-                    console.log(squareMapped.flatMap(innerArray => innerArray.concat()));
-                    setSquares(squareMapped.flatMap(innerArray => innerArray.concat()))
+                    let response: string  = await connection.invoke("StartGame", roomName);
+                    let squareMapped : Square[] = JSON.parse(response)
+                    console.log(response)
+                    console.log()
+                    console.log(squareMapped.flat(1));
+                    setSquares(squareMapped.flat(1))
                     setLoading(false);
                 } catch (error) {
                     console.error("Error invoking StartGame:", error);

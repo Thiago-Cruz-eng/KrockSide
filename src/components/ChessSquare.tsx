@@ -56,6 +56,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
     const onDrop = (e: React.DragEvent, targetRow: number, targetColumn: number) => {
         e.preventDefault();
         const pieceData = e.dataTransfer.getData("piece");
+        console.log(pieceData)
         const { row: startRow, column: startColumn, piece } = JSON.parse(pieceData);
         animatePieceMovement(startRow, startColumn, targetRow, targetColumn, piece);
     };
@@ -85,8 +86,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
             if(!verifyValidate) return new Error("User without permission to play")
 
             const user = await UserController.getUser(id);
-            console.log(user.userName, roomName, startRow, endRow, startColumn, endColumn, highlighted);
-            
+
             const response:boolean = await connection.invoke("MakeMove", user.userName, roomName, startRow, endRow, startColumn, endColumn, highlighted);
             const response2 = await connection.invoke("GetPositionInBoard", roomName, endRow, endColumn);
             const response3 = await connection.invoke("GetPositionPlaced", roomName);
@@ -169,7 +169,6 @@ const ChessSquare: React.FC<ChessSquareProps> = ({ color, row, column, piece ,sq
 
     const handleRerenderBoard = (change: boolean) => {
         console.log("board mudou!!!!!!!!!!!!111", change);
-
         onChangeBoard(change);
     }
     return (
