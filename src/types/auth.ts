@@ -54,9 +54,21 @@ export interface CreateUserResponse {
   userId: string;
 }
 
+/**
+ * Contrato real de `GET /users/{id}` (Orchestrator/UseCases/Dto/Response/GetUserResponse.cs),
+ * conferido contra o backend em 2026-08-01.
+ *
+ * Este tipo declarava `userName`, que o backend nunca envia — o campo se chama `name`.
+ * `user.userName` era sempre `undefined`, e o `if (!user.userName) return` do lobby abortava
+ * a entrada na sala em silêncio, sem mensagem nenhuma para o jogador.
+ */
 export interface GetUserResponse {
-  userName: string;
+  id: string;
+  name: string;
   email: string;
+  role: string;
+  mustChangePassword: boolean;
+  assignments?: unknown[];
 }
 
 export interface GetValidationResponse {

@@ -119,8 +119,14 @@ describe('userApi', () => {
   });
 
   it('getUser GETs by id', async () => {
-    mock.onGet('users/u1').reply(200, { userName: 'thiago', email: 'a@b.com' });
+    mock.onGet('users/u1').reply(200, {
+      id: 'u1',
+      name: 'thiago',
+      email: 'a@b.com',
+      role: 'jogador',
+      mustChangePassword: false,
+    });
     const res = await userApi.getUser('u1');
-    expect(res.userName).toBe('thiago');
+    expect(res.name).toBe('thiago');
   });
 });

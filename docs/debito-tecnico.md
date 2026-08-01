@@ -8,11 +8,6 @@ e caminho de saída. Item marcado `[DECISÃO]` exige definição humana antes de
 - Item resolvido **sai** desta lista e é citado no PR que o resolveu.
 - Ao encontrar divergência nova, registre aqui **antes** de corrigir de passagem.
 
-> **Revisão 2026-08-01** (`refactor/motor-xadrez-modernizacao`). Saíram desta lista: **DT-01**
-> (a cor agora vem de `JoinRoom`, guardada em `src/service/gameSession.ts` — o tabuleiro voltou a
-> aceitar jogada), **DT-08** (o primeiro jogador navega ao entrar, e o tabuleiro espera o
-> adversário em vez de mostrar erro) e **DT-12** (MSW 2). Entrou **DT-15**. Relatório completo em
-> [`../../Hibrygame/docs/refactor-2026-08-01.md`](../../Hibrygame/docs/refactor-2026-08-01.md).
 - A fonte de verdade do que o backend entrega é `docs/FRONTEND_CHANGES.md` **do repositório
   `../Hibrygame`**, não este arquivo e não o código atual deste repositório.
 
@@ -20,10 +15,27 @@ e caminho de saída. Item marcado `[DECISÃO]` exige definição humana antes de
 (`Orchestrator/Presentation/UserController.cs`, `ValidationController.cs`,
 `Infra/SignalR/ChessHub.cs`, `UseCases/Security/TokenService.cs`).
 
-> ⚠️ **Não foi possível rodar a suíte** durante este levantamento: neste ambiente o Node falha com
-> `EPERM: lstat 'C:\Users\dgs-admin\AppData'` ao resolver o diretório de instalação do npm. Nenhuma
-> contagem de teste aqui é verificada — rode `npm run test:ci` antes de confiar em qualquer
-> baseline. Este item é ambiental, não do repositório.
+> **Revisão 2026-08-01** (`refactor/motor-xadrez-modernizacao`). Saíram desta lista:
+>
+> - **DT-01** — a cor agora vem de `JoinRoom`, guardada em `src/service/gameSession.ts`. O
+>   tabuleiro voltou a aceitar jogada.
+> - **DT-02** — as três rotas erradas (`create`, `get/{id}`, `refresh`) foram corrigidas para
+>   `users`, `users/{id}` e `refresh-token`, junto com os mocks. Encontrado batendo no backend
+>   real: os dublês reproduziam o mesmo erro do código, então a suíte não podia pegar.
+> - **DT-08** — o primeiro jogador navega ao entrar, e o tabuleiro espera o adversário em vez
+>   de mostrar erro.
+> - **DT-12** — MSW 2.
+>
+> Entrou **DT-15**. Parte do **DT-03** foi resolvida: `GetUserResponse` agora declara o contrato
+> real (`name`, não `userName`) — o campo era sempre `undefined` e o `if (!user.userName) return`
+> abortava a entrada na sala em silêncio. O resto do DT-03 (payload de cadastro) segue aberto.
+>
+> A suíte **rodou** nesta revisão: 54 testes passando. O aviso ambiental sobre o npm continua
+> válido — use `"C:\Program Files\nodejs\npm.cmd"`, porque `npm` puro falha com `EPERM` neste
+> ambiente. Ver o relatório completo em
+> [`../../Hibrygame/docs/refactor-2026-08-01.md`](../../Hibrygame/docs/refactor-2026-08-01.md)
+> e os resultados do smoke em
+> [`../../Hibrygame/docs/manual-testing-results.md`](../../Hibrygame/docs/manual-testing-results.md).
 
 ## Severidade alta — o jogo não funciona
 
@@ -42,27 +54,6 @@ render foi removida.
 - **Arquivo**: `eslint.config.js`
 - **Saída**: reescrever os três com `useSyncExternalStore` (ou equivalente) e religar a regra. É
   refactor da camada de estado, não conserto pontual.
-
-### DT-02 — quatro rotas REST divergem do backend real
-
-`src/service/userApi.ts` chama rotas que **não existem** no `UserController` do backend:
-
-| `userApi` chama | Backend expõe | Situação |
-|---|---|---|
-| `POST create` | `POST /users` | ❌ 404 |
-| `GET get/{id}` | `GET /users/{id}` | ❌ 404 |
-| `POST refresh` | `POST /refresh-token` | ❌ 404 |
-| `POST login` | `POST /login` | ✅ |
-| `POST validation/{verify,get,update/{id},can-move}` | idem | ✅ |
-
-Consequência prática: **cadastro e refresh nunca funcionaram**, e `ChessLobby.handleJoinRoom` chama
-`userApi.getUser(id)` como primeira ação — ou seja, entrar em sala falha em 404 antes de qualquer
-outra coisa (o `catch` mostra "Erro ao entrar na sala."). Os testes passam porque `msw` e
-`page.route` mockam justamente as rotas erradas (`**/login`, `**/get/**`).
-
-- **Arquivos**: `src/service/userApi.ts`, `src/mocks/handlers.ts`, `tests-e2e/*.spec.ts`
-- **Saída**: corrigir as três rotas em `userApi`, e atualizar os mocks **juntos** — mock que
-  espelha a rota errada é o que esconde o bug.
 
 ### DT-03 — o payload de cadastro é incompatível com o backend
 

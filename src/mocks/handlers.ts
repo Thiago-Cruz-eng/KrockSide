@@ -50,7 +50,10 @@ export const handlers = [
 
   http.get(`${BASE}/users/:id`, ({ params }) =>
     HttpResponse.json({
-      userName: `user-${params.id as string}`,
+      id: params.id as string,
+      name: `user-${params.id as string}`,
+      role: 'jogador',
+      mustChangePassword: false,
       email: `${params.id as string}@b.com`,
     }),
   ),

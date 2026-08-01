@@ -126,7 +126,7 @@ export function useChessLobby(userId: string | undefined): ChessLobbyApi {
         }
 
         const user = await userApi.getUser(userId);
-        if (!user.userName) return null;
+        if (!user.name) return null;
 
         if (!(await userApi.verifyValidation(decoded.sub))) return null;
 
@@ -145,7 +145,7 @@ export function useChessLobby(userId: string | undefined): ChessLobbyApi {
         // atribuía só por ordem de chegada e ignorava a escolha do jogador.
         const joinResult = await invoke<JoinRoomResponse>(
           'JoinRoom',
-          user.userName,
+          user.name,
           room,
           preferredColor,
         );
@@ -156,7 +156,7 @@ export function useChessLobby(userId: string | undefined): ChessLobbyApi {
 
         // O servidor continua sendo a autoridade: guardamos a cor que ELE devolveu.
         setAssignedColor(room, joinResult.color);
-        setPlayerName(room, user.userName);
+        setPlayerName(room, user.name);
 
         if (joinResult.preferenceHonoured === false) {
           setErrorMessage(
