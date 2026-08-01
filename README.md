@@ -149,9 +149,9 @@ repos.** Cada PR passa a ser testado contra a metade correspondente do outro lad
 nada. O gate espelho existe lá (`e2e.yml` no Hibrygame) — sem ele, uma mudança no hub ou num DTO
 quebraria o front sem gate nenhum.
 
-A janela entre os dois merges é o único caso que o CI não resolve, porque nela os dois `main`
-estão de fato incompatíveis: ver
-[docs/mudanca-coordenada.md](https://github.com/Thiago-Cruz-eng/Hibrygame/blob/main/docs/mudanca-coordenada.md).
+O passo a passo completo — os três formatos de demanda (back+front, só back, só front), onde cada
+teste mora e a janela entre os dois merges — está em
+[docs/fluxo-de-trabalho.md](https://github.com/Thiago-Cruz-eng/Hibrygame/blob/main/docs/fluxo-de-trabalho.md).
 
 ## Pendente
 - Manter sincronizado com `BACKEND_CHANGES.md` / doc do backend (Hibrygame Orchestrator).
