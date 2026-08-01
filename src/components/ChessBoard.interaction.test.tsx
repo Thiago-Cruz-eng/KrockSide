@@ -5,7 +5,14 @@ import { HubConnectionState } from '@microsoft/signalr';
 import ChessBoard from './ChessBoard';
 import { createFakeHub, FakeHub, HubTestProvider } from '../test-utils/hub';
 import { setAssignedColor } from '../service/gameSession';
-import { BoardSnapshot, Color, PieceDto, SquareDto, toAlgebraic } from '../types/chess';
+import {
+  BoardSnapshot,
+  Color,
+  GameOutcome,
+  PieceDto,
+  SquareDto,
+  toAlgebraic,
+} from '../types/chess';
 
 /**
  * Regressões de interação do tabuleiro encontradas na Fase 2 do refactor.
@@ -38,12 +45,13 @@ function squaresWith(pieces: Record<string, PieceDto>): SquareDto[] {
 const whitePawn: PieceDto = { type: 'Pawn', color: 'White', isInCheckState: false };
 const blackPawn: PieceDto = { type: 'Pawn', color: 'Black', isInCheckState: false };
 
-function snapshotOf(currentTurn: Color): BoardSnapshot {
+function snapshotOf(currentTurn: Color, outcome: GameOutcome = 'InProgress'): BoardSnapshot {
   return {
     room: 'r1',
     currentTurn,
     started: true,
-    finished: false,
+    finished: outcome !== 'InProgress',
+    outcome,
     squares: squaresWith({ e2: whitePawn, e7: blackPawn }),
   };
 }
@@ -53,18 +61,22 @@ interface Harness {
   calls: Array<{ method: string; args: unknown[] }>;
 }
 
-function renderBoard(currentTurn: Color = 'White'): Harness {
+function renderBoard(currentTurn: Color = 'White', outcome: GameOutcome = 'InProgress'): Harness {
   const hub = createFakeHub(HubConnectionState.Connected);
   const calls: Array<{ method: string; args: unknown[] }> = [];
 
   hub.setInvoke(async (method, ...args) => {
     calls.push({ method, args });
-    if (method === 'StartGame') return { success: true, snapshot: snapshotOf(currentTurn) };
+    if (method === 'JoinRoom') {
+      return { room: 'r1', player: 'p', color: 'White', connectionId: 'c1' };
+    }
+    if (method === 'StartGame') {
+      return { success: true, snapshot: snapshotOf(currentTurn, outcome) };
+    }
     if (method === 'GetPossibleMoves') {
       return { success: true, from: args[1], moves: [squaresWith({})[0]] };
     }
-    if (method === 'MakeMove') return { success: true, snapshot: snapshotOf(currentTurn) };
-    return { success: true, snapshot: snapshotOf(currentTurn) };
+    return { success: true, snapshot: snapshotOf(currentTurn, outcome) };
   });
 
   render(
@@ -131,6 +143,50 @@ describe('ChessBoard — cor do jogador', () => {
 
     await waitFor(() => expect(screen.getByTestId('square-e7')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('square-e7'));
+
+    expect(calls.filter((c) => c.method === 'GetPossibleMoves')).toHaveLength(0);
+  });
+});
+
+describe('ChessBoard — fim de partida', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('anuncia o xeque-mate e diz quem ganhou', async () => {
+    setAssignedColor('r1', 'White');
+    const { hub } = renderBoard('Black', 'Checkmate');
+
+    await waitFor(() => expect(screen.getByTestId('square-e2')).toBeInTheDocument());
+
+    hub.emit('GameOver', {
+      room: 'r1',
+      outcome: 'Checkmate',
+      winner: 'White',
+      snapshot: snapshotOf('Black', 'Checkmate'),
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('game-result')).toHaveTextContent(/você ganhou/i),
+    );
+  });
+
+  it('anuncia o afogamento como empate', async () => {
+    setAssignedColor('r1', 'White');
+    renderBoard('White', 'Stalemate');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('game-result')).toHaveTextContent(/afogamento/i),
+    );
+  });
+
+  it('não aceita mais jogada depois do fim, mesmo sendo a sua vez', async () => {
+    setAssignedColor('r1', 'White');
+    const { calls } = renderBoard('White', 'Checkmate');
+
+    await waitFor(() => expect(screen.getByTestId('game-result')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('square-e2'));
 
     expect(calls.filter((c) => c.method === 'GetPossibleMoves')).toHaveLength(0);
   });

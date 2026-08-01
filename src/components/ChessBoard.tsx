@@ -16,6 +16,8 @@ const ChessBoard: React.FC = () => {
     highlighted,
     loading,
     waitingForOpponent,
+    outcome,
+    winner,
     error,
     lastMoveError,
     requestPossibleMoves,
@@ -31,7 +33,16 @@ const ChessBoard: React.FC = () => {
   // tabuleiro inteiro ficava desabilitado — nenhum clique funcionava.
   const playerColor: Color = useMemo(() => getAssignedColor(roomName), [roomName]);
 
-  const isMyTurn = playerColor !== 'None' && playerColor === currentTurn;
+  const isFinished = outcome !== 'InProgress';
+  const isMyTurn = !isFinished && playerColor !== 'None' && playerColor === currentTurn;
+
+  const resultText = useMemo(() => {
+    if (outcome === 'Stalemate') return 'Empate por afogamento.';
+    if (outcome !== 'Checkmate') return null;
+    if (winner === playerColor) return 'Xeque-mate — você ganhou!';
+    if (winner) return `Xeque-mate — ${winner} ganhou.`;
+    return 'Xeque-mate.';
+  }, [outcome, winner, playerColor]);
 
   const squareIndex = useMemo(() => {
     const map = new Map<string, SquareDto>();
@@ -110,6 +121,11 @@ const ChessBoard: React.FC = () => {
       </div>
       {waitingForOpponent && (
         <div data-testid="waiting-opponent">Aguardando adversário…</div>
+      )}
+      {resultText && (
+        <div data-testid="game-result" role="status">
+          {resultText}
+        </div>
       )}
       {lastMoveError && <div role="alert">{lastMoveError}</div>}
       <div className="chessboard">

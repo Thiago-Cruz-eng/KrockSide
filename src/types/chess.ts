@@ -25,12 +25,25 @@ export interface SquareDto {
   piece: PieceDto | null;
 }
 
+/** Situação da partida na vez de `currentTurn`. */
+export type GameOutcome = 'InProgress' | 'Checkmate' | 'Stalemate';
+
 export interface BoardSnapshot {
   room: string;
   currentTurn: Color;
   started: boolean;
   finished: boolean;
+  /** Ausente em respostas antigas do servidor; trate como 'InProgress'. */
+  outcome?: GameOutcome;
   squares: SquareDto[];
+}
+
+export interface GameOverEvent {
+  room: string;
+  outcome: GameOutcome;
+  /** Cor vencedora no xeque-mate; null no afogamento. */
+  winner: Color | null;
+  snapshot: BoardSnapshot;
 }
 
 export interface CreateRoomResponse {
@@ -69,6 +82,9 @@ export interface MakeMoveResponse {
   from?: string;
   to?: string;
   nextTurn?: Color;
+  outcome?: GameOutcome;
+  /** Cor vencedora quando `outcome` é 'Checkmate'. */
+  winner?: Color | null;
   snapshot?: BoardSnapshot;
 }
 
@@ -96,6 +112,8 @@ export interface BoardChangedEvent {
   to: string;
   byColor: Color;
   nextTurn: Color;
+  outcome?: GameOutcome;
+  winner?: Color | null;
   snapshot: BoardSnapshot;
 }
 

@@ -6,6 +6,8 @@ import {
   BoardChangedEvent,
   BoardSnapshot,
   Color,
+  GameOutcome,
+  GameOverEvent,
   JoinRoomResponse,
   MakeMoveResponse,
   PossibleMovesResponse,
@@ -21,6 +23,10 @@ export interface ChessGameApi {
   loading: boolean;
   /** A sala existe mas ainda não tem dois jogadores. Não é erro. */
   waitingForOpponent: boolean;
+  /** Situação da partida na vez de `currentTurn`. */
+  outcome: GameOutcome;
+  /** Cor vencedora no xeque-mate; null enquanto a partida corre e no afogamento. */
+  winner: Color | null;
   error: string | null;
   lastMoveError: string | null;
   requestPossibleMoves: (from: string) => Promise<PossibleMovesResponse>;
@@ -39,6 +45,7 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
+  const [winner, setWinner] = useState<Color | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastMoveError, setLastMoveError] = useState<string | null>(null);
 
@@ -125,6 +132,14 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
       const payload = args[0] as BoardChangedEvent;
       setSnapshot(applySnapshot(payload.snapshot));
       setHighlighted(new Set());
+      if (payload.winner !== undefined) setWinner(payload.winner);
+    });
+    // Evento próprio de fim de partida: não é preciso inspecionar todo BoardChanged.
+    const offGameOver = on('GameOver', (...args) => {
+      const payload = args[0] as GameOverEvent;
+      setSnapshot(applySnapshot(payload.snapshot));
+      setWinner(payload.winner);
+      setHighlighted(new Set());
     });
     const offGameStarted = on('GameStarted', (...args) => {
       setSnapshot(applySnapshot(args[0] as BoardSnapshot));
@@ -139,6 +154,7 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
     return () => {
       offBoardChanged();
       offGameStarted();
+      offGameOver();
       offPlayerJoined();
     };
   }, [state, rejoin, start, on]);
@@ -179,6 +195,7 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
         setSnapshot(result.snapshot);
         setHighlighted(new Set());
         setLastMoveError(null);
+        if (result.winner !== undefined) setWinner(result.winner);
       } else if (!result.success) {
         setLastMoveError(result.message ?? 'Move rejected');
       }
@@ -196,6 +213,8 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
     highlighted,
     loading,
     waitingForOpponent,
+    outcome: snapshot?.outcome ?? 'InProgress',
+    winner,
     error,
     lastMoveError,
     requestPossibleMoves,
