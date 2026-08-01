@@ -34,7 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Histórico completo: o diff-cover precisa comparar com a base do PR, e um checkout raso
+      # não tem o ancestral comum.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -50,10 +54,29 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      # O piso global de cobertura mora em vite.config.ts (thresholds) e falha aqui dentro.
       - name: Test
         run: npm run test:ci
         env:
           CI: true
+
+      # Catraca sobre o código NOVO.
+      #
+      # O piso global impede que a cobertura caia; este passo cobra que o que você está
+      # adicionando agora venha testado. É a única pergunta acionável dentro de um PR — exigir
+      # um número absoluto alto sobre a base inteira ou trava todo mundo ou não dispara nunca.
+      #
+      # 80% e não 100%: sobra folga para guarda defensiva e caminho de erro que não vale um
+      # teste dedicado. Só roda em PR — em push para main não existe base com que comparar.
+      - name: Cobertura do código novo
+        if: github.event_name == 'pull_request'
+        run: |
+          pip install --quiet diff-cover
+          diff-cover coverage/cobertura-coverage.xml \
+            --compare-branch=origin/${{ github.base_ref }} \
+            --fail-under=80 \
+            --markdown-report=coverage-diff.md
+          cat coverage-diff.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build
         run: npm run build

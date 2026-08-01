@@ -25,9 +25,31 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'lcov'],
+      // cobertura entra para o diff-cover do CI ler; os outros dois são para humano.
+      reporter: ['text', 'lcov', 'cobertura'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/mocks/**', 'src/test-utils/**'],
+
+      /**
+       * Piso, não meta.
+       *
+       * Os números são o que a suíte cobre hoje (61,25% linhas / 81,29% ramos / 76,56% funções),
+       * arredondados para baixo. Não são um alvo a perseguir: são uma catraca que impede a
+       * cobertura de CAIR. Subiu? Suba o piso junto, no mesmo PR.
+       *
+       * Deliberadamente não é um número redondo tipo 80%: limiar absoluto acima do real ou
+       * bloqueia todo mundo até alguém pagar a dívida de uma vez, ou é frouxo o bastante para
+       * nunca disparar. Os dois destinos são inúteis.
+       *
+       * O gate que realmente cobra qualidade do código NOVO é o diff-cover no CI. Este aqui só
+       * garante que ninguém apague testes existentes.
+       */
+      thresholds: {
+        lines: 61,
+        statements: 61,
+        branches: 80,
+        functions: 76,
+      },
     },
   },
 });
