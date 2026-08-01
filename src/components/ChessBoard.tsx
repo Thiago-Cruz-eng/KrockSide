@@ -29,7 +29,20 @@ const ChessBoard: React.FC = () => {
     clearHighlights,
   } = useChessGame(roomName);
 
-  const [selected, setSelected] = useState<string | null>(null);
+  /**
+   * Casa selecionada. Espelhada num ref porque dois cliques rápidos chegam antes de o
+   * React re-renderizar: o handler do segundo clique ainda enxergava `selected` nulo,
+   * tratava o destino como nova seleção e o lance sumia sem aviso. Quem joga rápido
+   * perdia jogadas.
+   *
+   * O estado continua existindo porque é o que pinta a casa; o ref é o que decide.
+   */
+  const [selected, setSelectedState] = useState<string | null>(null);
+  const selectedRef = useRef<string | null>(null);
+  const setSelected = useCallback((value: string | null) => {
+    selectedRef.current = value;
+    setSelectedState(value);
+  }, []);
 
   // A cor vem do servidor, atribuída em JoinRoom e guardada pelo lobby. Antes era
   // derivada do claim `role` do JWT, que carrega o papel de autorização ("jogador"),
@@ -87,15 +100,26 @@ const ChessBoard: React.FC = () => {
 
   const handleSelect = useCallback(
     async (algebraic: string, piece: PieceDto | null) => {
-      // Segundo clique: tenta o lance, desde que o destino esteja entre os que o
-      // servidor devolveu como legais.
-      if (selected && selected !== algebraic) {
+      const current = selectedRef.current;
+
+      if (current && current !== algebraic) {
+        // Clicar em OUTRA peça sua troca a seleção. Antes limpava tudo e obrigava um
+        // segundo clique para escolher outra peça — atrito que nenhuma interface de xadrez
+        // tem. Nunca é um lance: não se captura peça da própria cor.
+        if (isOwnPiece(piece)) {
+          setSelected(algebraic);
+          await requestPossibleMoves(algebraic);
+          return;
+        }
+
+        // Segundo clique num destino: tenta o lance, desde que esteja entre os que o
+        // servidor devolveu como legais.
         if (highlighted.size > 0 && !highlighted.has(algebraic)) {
           setSelected(null);
           clearHighlights();
           return;
         }
-        const result = await makeMove(selected, algebraic);
+        const result = await makeMove(current, algebraic);
         setSelected(null);
         if (!result.success) clearHighlights();
         return;
@@ -110,7 +134,7 @@ const ChessBoard: React.FC = () => {
       setSelected(algebraic);
       await requestPossibleMoves(algebraic);
     },
-    [selected, highlighted, makeMove, isOwnPiece, requestPossibleMoves, clearHighlights],
+    [highlighted, makeMove, isOwnPiece, requestPossibleMoves, clearHighlights, setSelected],
   );
 
   // Busca os destinos legais assim que o arrasto começa, para que a soltura já tenha
@@ -120,7 +144,7 @@ const ChessBoard: React.FC = () => {
       setSelected(algebraic);
       void requestPossibleMoves(algebraic);
     },
-    [requestPossibleMoves],
+    [requestPossibleMoves, setSelected],
   );
 
   const handleDropPiece = useCallback(
@@ -135,7 +159,7 @@ const ChessBoard: React.FC = () => {
       await makeMove(from, to);
       setSelected(null);
     },
-    [makeMove, highlighted, clearHighlights],
+    [makeMove, highlighted, clearHighlights, setSelected],
   );
 
   /**
