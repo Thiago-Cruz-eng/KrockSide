@@ -11,13 +11,14 @@ name: ci
 # apareceu neste projeto: dublê de teste que espelha o erro do código. Houve teste verde em
 # `**/get/**` — a rota ERRADA que o front chamava — enquanto entrar em sala respondia 404 em
 # produção. Bug em junção só aparece quando as partes reais conversam.
+# O filtro de branch fica só no push. Em `pull_request` ele ficava em `main` e, com isso, PR
+# empilhado sobre outra branch não disparava check nenhum — justamente onde mais se quer o
+# gate, porque a base ainda não foi revisada.
 on:
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
