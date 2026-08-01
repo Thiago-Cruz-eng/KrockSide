@@ -13,6 +13,10 @@
 
 # misc
 .DS_Store
+# O .gitignore herdado do create-react-app cobria só os .env.*.local e deixava o `.env`
+# simples de fora — configuração local de máquina acabaria versionada. O template
+# versionado é o .env.example.
+.env
 .env.local
 .env.development.local
 .env.test.local
