@@ -141,11 +141,17 @@ E2E_SKIP_API_START=true npm run test:e2e   # quando a API já está no ar
 | `build-and-test` | lint + `tsc --noEmit` + unit/integração + build | ~3 min |
 | `e2e` | MongoDB em service container, checkout dos dois repos, sobe API + Vite, roda os 28 testes; trace/vídeo/screenshot das falhas como artifact | ~15-20 min |
 
-O job `e2e` faz checkout do backend em `${{ vars.HIBRYGAME_REF || 'main' }}`. Como o E2E verifica
-o **contrato** entre as duas pontas e elas evoluem em PRs separados, enquanto uma mudança de
-contrato não estiver em `main` a variável de repositório `HIBRYGAME_REF` precisa apontar para a
-branch correspondente do backend. O espelho existe do outro lado (`e2e.yml` no Hibrygame, com
-`KROCKSIDE_REF`) — sem ele, uma mudança no hub ou num DTO quebraria o front sem gate nenhum.
+O job `e2e` precisa do backend, que vive em outro repositório, e resolve qual ref usar nesta
+ordem: variável `HIBRYGAME_REF` (escape manual) → **branch de mesmo nome no Hibrygame** → `main`.
+
+Daí a convenção: **em mudança que toca as duas pontas, use o mesmo nome de branch nos dois
+repos.** Cada PR passa a ser testado contra a metade correspondente do outro lado, sem configurar
+nada. O gate espelho existe lá (`e2e.yml` no Hibrygame) — sem ele, uma mudança no hub ou num DTO
+quebraria o front sem gate nenhum.
+
+A janela entre os dois merges é o único caso que o CI não resolve, porque nela os dois `main`
+estão de fato incompatíveis: ver
+[docs/mudanca-coordenada.md](https://github.com/Thiago-Cruz-eng/Hibrygame/blob/main/docs/mudanca-coordenada.md).
 
 ## Pendente
 - Manter sincronizado com `BACKEND_CHANGES.md` / doc do backend (Hibrygame Orchestrator).
