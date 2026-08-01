@@ -1,46 +1,110 @@
-# Getting Started with Create React App
+# KrockSide
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React + TypeScript chess multiplayer frontend. Backend: ASP.NET Core SignalR hub + REST (Hibrygame Orchestrator).
 
-## Available Scripts
+> **Trabalhando neste repositório (pessoa ou agente):** as instruções canônicas estão em
+> [`AGENTS.md`](./AGENTS.md), a arquitetura não negociável em
+> [`.specify/memory/constitution.md`](./.specify/memory/constitution.md), o conhecimento de domínio
+> em [`.agents/skills/`](./.agents/skills/) e as **divergências confirmadas contra o backend** em
+> [`docs/debito-tecnico.md`](./docs/debito-tecnico.md) — leia esse último antes de assumir que algo
+> funciona ponta a ponta.
 
-In the project directory, you can run:
+## Stack
 
-### `npm start`
+- React 18 + TypeScript 4.9 (CRA)
+- `@microsoft/signalr` (oficial) via hook `useHubConnection`
+- `axios` com `Authorization: Bearer` interceptor
+- `react-router-dom` 6
+- Jest + RTL + MSW (unit & integration)
+- Playwright (E2E)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Setup
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+```bash
+cp .env.example .env
+npm install
+npm start
+```
 
-### `npm test`
+## Variáveis de ambiente
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+| Var | Default | Descrição |
+|-----|---------|-----------|
+| `REACT_APP_API_BASE_URL` | `https://localhost:5001/` | REST API |
+| `REACT_APP_HUB_URL` | `https://localhost:5001/chesshub` | SignalR hub |
 
-### `npm run build`
+## Scripts
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+| Script | Função |
+|--------|--------|
+| `npm start` | Dev server `localhost:3000` |
+| `npm test` | Jest watch |
+| `npm run test:ci` | Jest single-run com coverage |
+| `npm run build` | Build de produção |
+| `npm run test:e2e` | Playwright headless |
+| `npm run test:e2e:ui` | Playwright UI mode |
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Arquitetura
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+src/
+  components/      App, Login, ChessLobby, ChessBoard, ChessSquare
+  hooks/           useAuth, useHubConnection, useChessGame
+  service/         Api, userApi
+  types/           auth.ts, chess.ts (SquareDto, BoardSnapshot, ...)
+  mocks/           MSW handlers
+  test-utils/      FakeHub
+  integration/     Tests integration via MSW
+  styles/
+tests-e2e/         Playwright specs
+playwright.config.ts
+```
 
-### `npm run eject`
+### Contratos hub (Hibrygame)
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+Invocados pelo cliente:
+- `CreateRoom(name) → CreateRoomResponse`
+- `JoinRoom(player, name) → JoinRoomResponse` (inclui `color`)
+- `GetAvailableRooms() → string[]`
+- `GetPlayersInEachRoom() → Record<room, players[]>`
+- `GetPlayersInRoom(name) → number`
+- `StartGame(name) → StartGameResponse` (snapshot)
+- `GetBoardSnapshot(name) → BoardSnapshot`
+- `GetPossibleMoves(name, from) → PossibleMovesResponse` (algébrico, ex: `"e2"`)
+- `MakeMove(name, from, to) → MakeMoveResponse` (com turn enforcement no server)
+- `LeaveRoom(name)`
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Eventos do servidor:
+- `GameStarted` — `BoardSnapshot`
+- `BoardChanged` — `{ from, to, byColor, nextTurn, snapshot }`
+- `PlayerJoined` / `PlayerLeft` — `{ room, players: [{ name, color }] }`
+- `RoomFull`, `RoomNotFound`
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Coordenadas
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+3 sistemas paralelos por casa: `algebraic` (`"e4"`), `file/rank` (`'e'`, `4`), e `row/column` (0..7 internos). UI usa `algebraic` em todas as chamadas; mantém `row/column` só para layout do grid.
 
-## Learn More
+### Auth
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- JWT em `localStorage.accessToken${userId}` + refresh em `localStorage.refreshToken${userId}`.
+- `userId` = Guid (backend exige `Guid.TryParse` em refresh).
+- `sessionStorage.currentUserId` usado pelo axios interceptor para escolher token.
+- SignalR autentica via `accessTokenFactory` (query string `?access_token=...` no handshake).
+- Backend valida `JWT.sub == body.userId`. Mismatch = 403.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Tratamento de erros
+
+- `MakeMoveResponse.success === false` → exibe `message` (ex: `"Not your turn."`, `"That piece is not yours."`).
+- `RoomNotFound` / `RoomFull` → mensagem no lobby.
+- `useChessGame.lastMoveError` expõe último erro de movimento.
+
+### Testes
+
+- Unit: ao lado dos arquivos. Hub mockado via `createFakeHub`, REST via `axios-mock-adapter`.
+- Integration: `src/integration/`. MSW handlers em `src/mocks/handlers.ts`.
+- E2E: `tests-e2e/`. Playwright sobe dev server (`webServer`) + `page.route` mocks.
+
+## Pendente
+
+- `npx playwright install chromium` antes do primeiro E2E.
+- Manter sincronizado com `BACKEND_CHANGES.md` / doc do backend (Hibrygame Orchestrator).

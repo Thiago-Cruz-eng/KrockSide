@@ -1,21 +1,15 @@
 {
   "name": "krockside",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.76",
+    "@microsoft/signalr": "^8.0.7",
     "axios": "^1.6.7",
-    "create-react-app": "^5.0.1",
     "jwt-decode": "^4.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.3",
     "react-scripts": "5.0.1",
-    "react-signalr": "^0.2.19",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
@@ -23,6 +17,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "react-scripts test --watchAll=false --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -44,8 +41,21 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.45.0",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/jest": "^27.5.2",
     "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^16.18.76",
     "@types/react": "^18.2.48",
-    "@types/react-dom": "^18.2.18"
+    "@types/react-dom": "^18.2.18",
+    "axios-mock-adapter": "^1.22.0",
+    "msw": "^1.3.3"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^axios$": "axios/dist/node/axios.cjs"
+    }
   }
 }

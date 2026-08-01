@@ -1,206 +1,233 @@
-// Import statements...
-import "../styles/ChessLobby.css"
-import {useEffect, useState} from "react";
-import {useNavigate, useParams} from "react-router-dom";
-import {useSignalR} from "./SignalRContext";
-import UserController from "../service/ComunicationApi";
-import {jwtDecode} from "jwt-decode"
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { HubConnectionState } from '@microsoft/signalr';
+import '../styles/ChessLobby.css';
+import { useHubConnection } from '../hooks/useHubConnection';
+import { useAuth } from '../hooks/useAuth';
+import userApi from '../service/userApi';
+import {
+  Color,
+  CreateRoomResponse,
+  JoinRoomResponse,
+  PlayerInRoom,
+  PlayerJoinedEvent,
+  PlayerLeftEvent,
+} from '../types/chess';
 
-interface DecodedToken {
-  sub: string;
-  name: string;
-  jti: string;
-  emailAddress: string;
-  exp: number;
-}
+type LobbyColor = 'White' | 'Black' | '';
 
 const ChessLobby: React.FC = () => {
-  const connection = useSignalR();
-  const [isNewGame, setIsNewGame] = useState<boolean>(false);
-  const [roomName, setRoomName] = useState<string>('');
-  const [roomList, setRoomList] = useState<{ [key: string]: string }>({});
-  const [playerInRooms, setPlayerInRooms] = useState<{ [key: string]: string[] }>({});
+  const { state, invoke, on } = useHubConnection();
+  const { id } = useParams<{ id: string }>();
+  const { decoded, isValid } = useAuth(id);
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [selectedColor, setSelectedColor] = useState<string>(''); // State to remember selected color
 
+  const [isNewGame, setIsNewGame] = useState(false);
+  const [roomName, setRoomName] = useState('');
+  const [rooms, setRooms] = useState<string[]>([]);
+  const [playersByRoom, setPlayersByRoom] = useState<Record<string, PlayerInRoom[]>>({});
+  const [selectedColor, setSelectedColor] = useState<LobbyColor>('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loadRooms = useCallback(async () => {
+    try {
+      const result = await invoke<string[]>('GetAvailableRooms');
+      setRooms(result);
+    } catch (err) {
+      console.error('Error loading rooms:', err);
+    }
+  }, [invoke]);
+
+  const loadPlayersInRoom = useCallback(async () => {
+    try {
+      const result = await invoke<Record<string, string[]>>('GetPlayersInEachRoom');
+      const grouped: Record<string, PlayerInRoom[]> = {};
+      Object.entries(result).forEach(([room, players]) => {
+        grouped[room] = players.map((name) => ({ name, color: 'None' as Color }));
+      });
+      setPlayersByRoom(grouped);
+    } catch (err) {
+      console.error('Error loading players:', err);
+    }
+  }, [invoke]);
 
   useEffect(() => {
-    if (connection) {
-      connection.start()
-          .then(() => {
-            console.log('Connection established.');
-            handleGetRoom();
-            handleGetPlayerInRoom();
-          })
-          .catch(error => console.error("Error connecting:", error));
+    if (state !== HubConnectionState.Connected) return;
+    void loadRooms();
+    void loadPlayersInRoom();
 
-      connection.on("CreateRoom", (newRoom: string) => {
-        setRoomList(prevRoomList => ({
-          ...prevRoomList,
-          [newRoom]: newRoom
-        }));
-      });
-      connection.on("GameWillStart", (roomName: string) => {
-        navigate(`/chess-board/${roomName}/${id}`);
-      });
-      connection.on("PlayerJoined", (player) => {
-        handleGetPlayerInRoom()
-      });
-    }
-  }, [connection]);
+    const offJoined = on('PlayerJoined', (...args) => {
+      const payload = args[0] as PlayerJoinedEvent;
+      setPlayersByRoom((prev) => ({
+        ...prev,
+        [payload.room]: payload.players,
+      }));
+    });
+    const offLeft = on('PlayerLeft', (...args) => {
+      const payload = args[0] as PlayerLeftEvent;
+      setPlayersByRoom((prev) => ({
+        ...prev,
+        [payload.room]: payload.players,
+      }));
+    });
+    const offStarted = on('GameStarted', () => {
+      // snapshot delivered with event; navigate handled below by 2-player check or by direct push
+    });
+    const offRoomFull = on('RoomFull', (...args) => {
+      setErrorMessage(`Sala cheia: ${args[0] as string}`);
+    });
+    const offRoomNotFound = on('RoomNotFound', (...args) => {
+      setErrorMessage(`Sala não encontrada: ${args[0] as string}`);
+    });
 
-  const handleGetRoom = async () => {
-    try {
-      if (connection) {
-        const rooms = await connection.invoke("GetAvailableRoom");
-        setRoomList(rooms);
-      }
-    } catch (error) {
-      console.error("Error getting rooms:", error);
-    }
-  };
-
-  const handleGetPlayerInRoom = async () => {
-    try {
-      if (connection) {
-        const updatedPlayersInRoom: { [key: string]: string[] } = {};
-        const playersInRoom: { [key: string]: string } = await connection.invoke("GetPlayersInEachRoom");
-        Object.keys(playersInRoom).forEach(player => {
-          const roomName = playersInRoom[player];
-          if (!updatedPlayersInRoom[roomName]) {
-            updatedPlayersInRoom[roomName] = [player];
-          } else {
-            updatedPlayersInRoom[roomName].push(player);
-          }
-        });
-        setPlayerInRooms(updatedPlayersInRoom);
-        console.log(playersInRoom)
-      }
-    } catch (error) {
-      console.error("Error getting players in room:", error);
-    }
-  };
+    return () => {
+      offJoined();
+      offLeft();
+      offStarted();
+      offRoomFull();
+      offRoomNotFound();
+    };
+  }, [state, on, loadRooms, loadPlayersInRoom]);
 
   const handleJoinRoom = async (actualRoomName: string) => {
     try {
-      if (connection) {
-        const user = await UserController.getUser(id);
-        if (!user.userName) return;
-
-        const accessToken = localStorage.getItem(`accessToken${id}`);
-        console.log(accessToken)
-        if(accessToken == null) return
-        const decodedToken : DecodedToken = jwtDecode(accessToken);
-        if(decodedToken != null){
-          const verifyValidate = await UserController.verifyValidation({
-            AccessToken: accessToken,
-            UserId: decodedToken.sub
-          } );
-
-          console.log(verifyValidate)
-          if(!verifyValidate) return
-        }
-        console.log(decodedToken)
-
-        const validationUser = await UserController.getValidation({
-          AccessToken: accessToken,
-          UserId: decodedToken.sub
-        });
-
-        const updateValidation = await UserController.updateValidation(validationUser.Id, {
-          AccessToken: accessToken, PieceColor: selectedColor, Room: actualRoomName, UserEmail: user.email, UserId: id!.toString()
-        });
-
-        console.log(user.userName, actualRoomName, selectedColor)
-
-        if(!updateValidation) return
-        await connection.invoke("JoinRoom", user.userName, actualRoomName)
-
-
-        if(!updateValidation) return
-
-        let playersInRoom: number = await connection.invoke("GetPlayersInRoom", actualRoomName)
-
-        if (playersInRoom === 2) {
-          navigate(`/chess-board/${actualRoomName}/${id}`);
-        }
+      if (!id || !decoded || !isValid) {
+        setErrorMessage('Sessão inválida. Faça login novamente.');
+        return;
       }
-    } catch (error) {
-      console.error("Error joining room:", error);
+      if (!selectedColor) {
+        setErrorMessage('Selecione uma cor antes de entrar.');
+        return;
+      }
+      const user = await userApi.getUser(id);
+      if (!user.userName) return;
+
+      const verified = await userApi.verifyValidation(decoded.sub);
+      if (!verified) return;
+
+      const validation = await userApi.getValidation(decoded.sub);
+      if (validation) {
+        const updated = await userApi.updateValidation(validation.id, {
+          pieceColor: selectedColor.toLowerCase(),
+          room: actualRoomName,
+          userEmail: user.email,
+          userId: decoded.sub,
+        });
+        if (!updated) return;
+      }
+
+      const joinResult = await invoke<JoinRoomResponse>(
+        'JoinRoom',
+        user.userName,
+        actualRoomName,
+      );
+      if (!joinResult.room) {
+        setErrorMessage('Falha ao entrar na sala.');
+        return;
+      }
+
+      const playersInRoom = await invoke<number>('GetPlayersInRoom', actualRoomName);
+      if (playersInRoom === 2) {
+        navigate(`/chess-board/${actualRoomName}/${id}`);
+      }
+    } catch (err) {
+      console.error('Error joining room:', err);
+      setErrorMessage('Erro ao entrar na sala.');
     }
   };
 
   const createRoom = async () => {
+    if (!roomName.trim()) return;
     try {
-      if (connection) {
-        await connection.invoke("CreateRoom", roomName);
-        handleToggleNewGame();
+      const result = await invoke<CreateRoomResponse>('CreateRoom', roomName);
+      if (result.alreadyExisted) {
+        setErrorMessage('Sala já existe.');
       }
-    } catch (error) {
-      console.error("Error creating room:", error);
+      setRooms((prev) => (prev.includes(result.room) ? prev : [...prev, result.room]));
+      setIsNewGame(false);
+      setRoomName('');
+    } catch (err) {
+      console.error('Error creating room:', err);
+      setErrorMessage('Erro ao criar sala.');
     }
   };
 
-  const handleToggleNewGame = () => {
-    setIsNewGame(!isNewGame);
-  };
-
   return (
-      <div className="ChessLobby">
-        <h2>Jogos de Xadrez</h2>
-        <div className="lobby-container">
-          <div className="lobby-options">
-            <button onClick={handleToggleNewGame}>
-              {isNewGame ? 'Entrar em um Jogo Existente' : 'Criar Novo Jogo'}
-            </button>
-            <button>Voltar para o Login</button>
-          </div>
-          {isNewGame ? (
-              <div className="new-game-form">
-                <input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Enter room name" />
-                <button onClick={createRoom}>Criar Jogo</button>
-              </div>
-          ) : (
-              <div className="existing-games">
-                <h3>Jogos Existentes</h3>
-                {Object.keys(roomList).length === 0 ? (
-                    <p>Nenhum jogo foi criado até o momento.</p>
-                ) : (
-                    <ul>
-                      {Object.entries(roomList).map(([roomId, roomName]) => (
-                          <li key={roomId}>
-                            {roomName}
-                            <button onClick={() => handleJoinRoom(roomName)} className='join-button' disabled={playerInRooms[roomName]?.length === 2}>
-                              Entrar na Sala
-                            </button>
-                            {playerInRooms[roomName] && (
-                                <div>
-                                  <p>Jogadores na sala:</p>
-                                  <ul>
-                                    {playerInRooms[roomName].map((player, index) => (
-                                        <li key={index}>{player}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                            )}
-                            {/* Buttons for selecting player color */}
-                            <div>
-                              <button onClick={() => setSelectedColor('black')} disabled={selectedColor === 'branco'}>
-                                Preto
-                              </button>
-                              <button onClick={() => setSelectedColor('white')} disabled={selectedColor === 'preto'}>
-                                Branco
-                              </button>
-                            </div>
-                          </li>
-                      ))}
-                    </ul>
-                )}
-              </div>
-          )}
+    <div className="ChessLobby">
+      <h2>Jogos de Xadrez</h2>
+      {errorMessage && <div role="alert">{errorMessage}</div>}
+      <div className="lobby-container">
+        <div className="lobby-options">
+          <button onClick={() => setIsNewGame((v) => !v)}>
+            {isNewGame ? 'Entrar em um Jogo Existente' : 'Criar Novo Jogo'}
+          </button>
+          <button onClick={() => navigate('/')}>Voltar para o Login</button>
         </div>
+        {isNewGame ? (
+          <div className="new-game-form">
+            <input
+              type="text"
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+              placeholder="Enter room name"
+            />
+            <button onClick={createRoom}>Criar Jogo</button>
+          </div>
+        ) : (
+          <div className="existing-games">
+            <h3>Jogos Existentes</h3>
+            {rooms.length === 0 ? (
+              <p>Nenhum jogo foi criado até o momento.</p>
+            ) : (
+              <ul>
+                {rooms.map((name) => {
+                  const players = playersByRoom[name] ?? [];
+                  return (
+                    <li key={name}>
+                      {name}
+                      <button
+                        onClick={() => handleJoinRoom(name)}
+                        className="join-button"
+                        disabled={players.length === 2 || !selectedColor}
+                      >
+                        Entrar na Sala
+                      </button>
+                      {players.length > 0 && (
+                        <div>
+                          <p>Jogadores na sala:</p>
+                          <ul>
+                            {players.map((player) => (
+                              <li key={player.name}>
+                                {player.name}
+                                {player.color !== 'None' ? ` (${player.color})` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <div className="color-picker">
+                        <button
+                          onClick={() => setSelectedColor('Black')}
+                          disabled={selectedColor === 'Black'}
+                        >
+                          Preto
+                        </button>
+                        <button
+                          onClick={() => setSelectedColor('White')}
+                          disabled={selectedColor === 'White'}
+                        >
+                          Branco
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
+    </div>
   );
 };
 

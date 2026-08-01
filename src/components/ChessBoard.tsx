@@ -1,133 +1,117 @@
-import React, {useEffect, useState} from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import '../styles/ChessBoard.css';
-import * as signalR from "@microsoft/signalr";
-import {useSignalR} from "./SignalRContext";
 import { useParams } from 'react-router-dom';
-import ChessSquare from "./ChessSquare";
-import Piece from "../utils/ChessPiece";
-import Position from "../utils/Position";
+import ChessSquare from './ChessSquare';
+import { useChessGame } from '../hooks/useChessGame';
+import { useAuth } from '../hooks/useAuth';
+import { Color, PieceDto, SquareDto, toAlgebraic } from '../types/chess';
 
-interface Square {
-    SquareColor: string | undefined;
-    Piece: Piece | null;
-    Row: number;
-    Column: number;
-    HighlightedPosition: boolean
-    onSelectSquare: (row: number, column:number) => any
-}
+const BOARD_SIZE = 8;
 
-interface PossibleMoves {
-    column: number;
-    piece: any;
-    row: number;
-    squareColor: number;
+function selfColor(decodedRole?: string): Color {
+  if (decodedRole === 'white') return 'White';
+  if (decodedRole === 'black') return 'Black';
+  return 'None';
 }
 
 const ChessBoard: React.FC = () => {
-    const connectionOfWebSocket = useSignalR();
-    const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
-    const { roomName } = useParams();
-    const [squares, setSquares] = useState<Square[]>([]);
-    const [loading, setLoading] = useState(true); 
+  const { roomName, id } = useParams<{ roomName: string; id: string }>();
+  const { decoded } = useAuth(id);
+  const {
+    squares,
+    currentTurn,
+    highlighted,
+    loading,
+    error,
+    lastMoveError,
+    requestPossibleMoves,
+    makeMove,
+    clearHighlights,
+  } = useChessGame(roomName);
 
-    useEffect(() => {
-        setConnection(connectionOfWebSocket);
-    }, []);
+  const [selected, setSelected] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (connection) {
-            setTimeout(() => {
-                const startGame = async () => {
-                    try {
-                        const response = await connection.invoke("StartGame", roomName);
-                        console.log(JSON.parse(response));
-                        console.log("AQUIIIIIIII -------------------######################333");
-                        setSquares(JSON.parse(response))
-                        setLoading(false);
-                    } catch (error) {
-                        console.error("Error invoking StartGame:", error);
-                    }
+  const playerColor: Color = useMemo(
+    () => selfColor(decoded?.role),
+    [decoded],
+  );
+
+  const isMyTurn = playerColor !== 'None' && playerColor === currentTurn;
+
+  const squareIndex = useMemo(() => {
+    const map = new Map<string, SquareDto>();
+    squares.forEach((sq) => map.set(sq.algebraic, sq));
+    return map;
+  }, [squares]);
+
+  const handleSelect = useCallback(
+    async (algebraic: string, piece: PieceDto | null) => {
+      if (selected && selected !== algebraic) {
+        const result = await makeMove(selected, algebraic);
+        setSelected(null);
+        if (!result.success) clearHighlights();
+        return;
+      }
+      if (!piece || piece.color !== playerColor) {
+        setSelected(null);
+        clearHighlights();
+        return;
+      }
+      setSelected(algebraic);
+      await requestPossibleMoves(algebraic);
+    },
+    [selected, makeMove, playerColor, requestPossibleMoves, clearHighlights],
+  );
+
+  const handleDropPiece = useCallback(
+    async (from: string, to: string) => {
+      await makeMove(from, to);
+      setSelected(null);
+    },
+    [makeMove],
+  );
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div role="alert">Erro: {error}</div>;
+
+  return (
+    <div>
+      <div className="board-status">
+        <span data-testid="current-turn">Turno: {currentTurn}</span>
+        <span data-testid="player-color">Você: {playerColor}</span>
+      </div>
+      {lastMoveError && <div role="alert">{lastMoveError}</div>}
+      <div className="chessboard">
+        {Array.from({ length: BOARD_SIZE }).map((_, col) => (
+          <div key={col} className="row">
+            {Array.from({ length: BOARD_SIZE }).map((_, row) => {
+              const algebraic = toAlgebraic(row, col);
+              const square: SquareDto =
+                squareIndex.get(algebraic) ?? {
+                  algebraic,
+                  file: algebraic[0],
+                  rank: parseInt(algebraic.slice(1), 10),
+                  row,
+                  column: col,
+                  squareColor: (row + col) % 2 === 0 ? 'White' : 'Black',
+                  piece: null,
                 };
-                startGame();
-                connection.on("BoardChange", (done) => {
-                    if(done) {
-                        startGame()
-                    }
-                });
-            }, 1000)
-        }
-    }, [connection, roomName]);
-
-    const handleSquare:any = (possibleMove: PossibleMoves[]): void => {
-        setSquares(prevSquares => {
-            return prevSquares.map(square => {
-                const foundMove = possibleMove.find(move => move.column === square.Column && move.row === square.Row);
-                if (foundMove) {
-                    return {
-                        ...square,
-                        HighlightedPosition: true
-                    };
-                } else {
-                    return {
-                        ...square,
-                        HighlightedPosition: false
-                    };
-                }
-            });
-        });
-      
-    }
-
-    const handleChangeBoard:any = (change: boolean): void => {
-        if(change && connection) {
-            const rerenderGame = async () => {
-                try {
-                    console.log("@@@@@@@@@@@@@@###################")
-                    let response: string  = await connection.invoke("StartGame", roomName);
-                    let squareMapped : Square[] = JSON.parse(response)
-                    console.log(response)
-                    console.log()
-                    console.log(squareMapped.flat(1));
-                    setSquares(squareMapped.flat(1))
-                    setLoading(false);
-                } catch (error) {
-                    console.error("Error invoking StartGame:", error);
-                }
-                change = false;
-            };
-            rerenderGame()
-        }
-
-    }
-
-    if (loading) {
-        return <div>Loading...</div>;
-    }
-
-    return (
-        <div className="chessboard">
-            {[...Array(8)].map((_, col) => (
-                <div key={col} className="row">
-                    {[...Array(8)].map((_, row) => {
-                        const square = squares.find(square => square.Row === row && square.Column === col);
-                        return (
-                            <ChessSquare
-                                key={`${row}-${col}`}
-                                color={square ? square.SquareColor : ''}
-                                column={col}
-                                row={row}
-                                squareColor={square ? square.SquareColor : ''}
-                                piece={square ? square.Piece : null}
-                                highlighted= {square?.HighlightedPosition ? false : true}
-                                onSelectSquare={handleSquare}
-                                onChangeBoard={handleChangeBoard}
-                            />
-                        );
-                    })}
-                </div>
-            ))}
-        </div>
-    );
+              return (
+                <ChessSquare
+                  key={algebraic}
+                  square={square}
+                  highlighted={highlighted.has(algebraic)}
+                  disabled={!isMyTurn}
+                  onSelect={handleSelect}
+                  onDropPiece={handleDropPiece}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export default ChessBoard;
