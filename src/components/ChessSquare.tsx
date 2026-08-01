@@ -6,9 +6,18 @@ import { PieceDto, SquareDto } from '../types/chess';
 export interface ChessSquareProps {
   square: SquareDto;
   highlighted: boolean;
+  /** Bloqueia clique e soltura — usado quando não é a vez do jogador. */
   disabled: boolean;
+  /**
+   * A peça desta casa pode ser arrastada: falso para casa vazia, para peça do
+   * adversário e fora da vez. O atributo `draggable` seguia apenas `disabled`, então
+   * na sua vez as peças do adversário também eram arrastáveis na tela.
+   */
+  canDrag: boolean;
   onSelect: (algebraic: string, piece: PieceDto | null) => void;
   onDropPiece: (from: string, to: string) => void;
+  /** Avisa o tabuleiro para já buscar os destinos legais no início do arrasto. */
+  onDragStartPiece: (algebraic: string) => void;
 }
 
 function getSizeClass(type: string): string {
@@ -24,14 +33,20 @@ const ChessSquare: React.FC<ChessSquareProps> = ({
   square,
   highlighted,
   disabled,
+  canDrag,
   onSelect,
   onDropPiece,
+  onDragStartPiece,
 }) => {
   const { algebraic, squareColor, piece } = square;
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (!piece) return;
+    if (!piece || !canDrag) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('from', algebraic);
+    onDragStartPiece(algebraic);
   };
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -65,7 +80,7 @@ const ChessSquare: React.FC<ChessSquareProps> = ({
         <img
           src={`${process.env.PUBLIC_URL}/${piece.color.toLowerCase()}-${piece.type.toLowerCase()}.png`}
           alt={`${piece.color} ${piece.type}`}
-          draggable={!disabled}
+          draggable={canDrag}
           onDragStart={handleDragStart}
           className={`chess-piece ${sizeClass}`}
         />

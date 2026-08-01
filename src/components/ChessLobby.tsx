@@ -5,6 +5,7 @@ import '../styles/ChessLobby.css';
 import { useHubConnection } from '../hooks/useHubConnection';
 import { useAuth } from '../hooks/useAuth';
 import userApi from '../service/userApi';
+import { setAssignedColor } from '../service/gameSession';
 import {
   Color,
   CreateRoomResponse,
@@ -121,15 +122,20 @@ const ChessLobby: React.FC = () => {
         user.userName,
         actualRoomName,
       );
-      if (!joinResult.room) {
+      if (!joinResult.room || !joinResult.color || joinResult.color === 'None') {
         setErrorMessage('Falha ao entrar na sala.');
         return;
       }
 
-      const playersInRoom = await invoke<number>('GetPlayersInRoom', actualRoomName);
-      if (playersInRoom === 2) {
-        navigate(`/chess-board/${actualRoomName}/${id}`);
-      }
+      // O servidor é quem atribui a cor; `selectedColor` é apenas a preferência do
+      // jogador e pode não ser atendida. Guardamos a resposta do servidor, que é o que
+      // o tabuleiro precisa para saber de quem é a vez.
+      setAssignedColor(actualRoomName, joinResult.color);
+
+      // Antes a navegação só acontecia quando a sala já tinha 2 jogadores, então o
+      // primeiro a entrar ficava preso no lobby para sempre. Agora ambos seguem para o
+      // tabuleiro, que aguarda o adversário e começa sozinho no GameStarted.
+      navigate(`/chess-board/${actualRoomName}/${id}`);
     } catch (err) {
       console.error('Error joining room:', err);
       setErrorMessage('Erro ao entrar na sala.');

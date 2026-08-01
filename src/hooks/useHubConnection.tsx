@@ -51,8 +51,15 @@ export const HubProvider: React.FC<HubProviderProps> = ({
   const connectionRef = useRef<HubConnection | null>(null);
   const [state, setState] = useState<HubConnectionState>(HubConnectionState.Disconnected);
 
+  // `factory` fora do array de dependências, atrás de um ref: quem passasse uma arrow
+  // inline recriava a função a cada render, e o efeito derrubava e reabria a conexão
+  // SignalR junto — a partida caía a cada re-render do provider.
+  const factoryRef = useRef(factory);
+  factoryRef.current = factory;
+
   useEffect(() => {
-    const conn = factory ? factory() : defaultFactory(url);
+    const build = factoryRef.current;
+    const conn = build ? build() : defaultFactory(url);
     connectionRef.current = conn;
 
     const onStateChange = () => setState(conn.state);
@@ -73,7 +80,7 @@ export const HubProvider: React.FC<HubProviderProps> = ({
       conn.stop().catch(() => undefined);
       connectionRef.current = null;
     };
-  }, [url, factory]);
+  }, [url]);
 
   const invoke = useCallback(
     async <T,>(method: string, ...args: unknown[]): Promise<T> => {

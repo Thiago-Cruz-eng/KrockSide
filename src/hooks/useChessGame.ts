@@ -17,6 +17,8 @@ export interface ChessGameApi {
   currentTurn: Color;
   highlighted: Set<string>;
   loading: boolean;
+  /** A sala existe mas ainda não tem dois jogadores. Não é erro. */
+  waitingForOpponent: boolean;
   error: string | null;
   lastMoveError: string | null;
   requestPossibleMoves: (from: string) => Promise<PossibleMovesResponse>;
@@ -34,6 +36,7 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
   const [snapshot, setSnapshot] = useState<BoardSnapshot | null>(null);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastMoveError, setLastMoveError] = useState<string | null>(null);
 
@@ -55,9 +58,25 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
       const result = await invoke<StartGameResponse>('StartGame', roomName);
       if (result.success && result.snapshot) {
         setSnapshot(result.snapshot);
-      } else if (!result.success) {
-        setError(result.message ?? 'StartGame failed');
+        setWaitingForOpponent(false);
+        setError(null);
+        setLoading(false);
+        return;
       }
+
+      // StartGame recusa enquanto a sala não tem dois jogadores. Isso não é erro: é o
+      // primeiro jogador esperando o adversário. Tratar como erro deixava esse jogador
+      // olhando para uma tela de "Erro:" em vez do tabuleiro.
+      const existing = await invoke<BoardSnapshot | null>('GetBoardSnapshot', roomName);
+      if (existing) {
+        setSnapshot(existing);
+        setWaitingForOpponent(!existing.started);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
+      setError(result.message ?? 'StartGame failed');
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start game');
@@ -76,12 +95,18 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
     });
     const offGameStarted = on('GameStarted', (...args) => {
       setSnapshot(applySnapshot(args[0] as BoardSnapshot));
+      setWaitingForOpponent(false);
       setLoading(false);
+    });
+    // Quem chegou primeiro tenta iniciar de novo quando o adversário entra.
+    const offPlayerJoined = on('PlayerJoined', () => {
+      void start();
     });
 
     return () => {
       offBoardChanged();
       offGameStarted();
+      offPlayerJoined();
     };
   }, [state, start, on]);
 
@@ -137,6 +162,7 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
     currentTurn: snapshot?.currentTurn ?? 'None',
     highlighted,
     loading,
+    waitingForOpponent,
     error,
     lastMoveError,
     requestPossibleMoves,

@@ -23,8 +23,10 @@ function renderSquare(
     square: makeSquare(),
     highlighted: false,
     disabled: false,
+    canDrag: false,
     onSelect: jest.fn(),
     onDropPiece: jest.fn(),
+    onDragStartPiece: jest.fn(),
     ...props,
   };
   return { utils: render(<ChessSquare {...merged} />), props: merged };
@@ -44,8 +46,10 @@ describe('ChessSquare', () => {
         square={makeSquare()}
         highlighted={false}
         disabled={false}
+        canDrag={false}
         onSelect={jest.fn()}
         onDropPiece={jest.fn()}
+        onDragStartPiece={jest.fn()}
       />,
     );
     expect(screen.getByTestId('square-e2').className).not.toContain('highlighted');
@@ -77,6 +81,57 @@ describe('ChessSquare', () => {
     renderSquare({ disabled: true, onSelect });
     fireEvent.click(screen.getByTestId('square-e2'));
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  // Regressão: `draggable` seguia apenas `disabled`, então na sua vez as peças do
+  // adversário também eram arrastáveis, e o dragstart publicava a casa de origem de
+  // qualquer peça — a UI propunha jogadas que só o servidor recusava.
+  it('marks the piece as draggable only when canDrag is true', () => {
+    const piece: PieceDto = { type: 'Pawn', color: 'White', isInCheckState: false };
+
+    const { utils } = renderSquare({ square: makeSquare({ piece }), canDrag: true });
+    expect(screen.getByAltText('White Pawn')).toHaveAttribute('draggable', 'true');
+
+    utils.rerender(
+      <ChessSquare
+        square={makeSquare({ piece })}
+        highlighted={false}
+        disabled={false}
+        canDrag={false}
+        onSelect={jest.fn()}
+        onDropPiece={jest.fn()}
+        onDragStartPiece={jest.fn()}
+      />,
+    );
+    expect(screen.getByAltText('White Pawn')).toHaveAttribute('draggable', 'false');
+  });
+
+  it('does not publish a drag source when canDrag is false', () => {
+    const onDragStartPiece = jest.fn();
+    const setData = jest.fn();
+    const piece: PieceDto = { type: 'Pawn', color: 'Black', isInCheckState: false };
+    renderSquare({ square: makeSquare({ piece }), canDrag: false, onDragStartPiece });
+
+    fireEvent.dragStart(screen.getByAltText('Black Pawn'), {
+      dataTransfer: { setData } as unknown as DataTransfer,
+    });
+
+    expect(setData).not.toHaveBeenCalled();
+    expect(onDragStartPiece).not.toHaveBeenCalled();
+  });
+
+  it('publishes the drag source and notifies the board when canDrag is true', () => {
+    const onDragStartPiece = jest.fn();
+    const setData = jest.fn();
+    const piece: PieceDto = { type: 'Pawn', color: 'White', isInCheckState: false };
+    renderSquare({ square: makeSquare({ piece }), canDrag: true, onDragStartPiece });
+
+    fireEvent.dragStart(screen.getByAltText('White Pawn'), {
+      dataTransfer: { setData } as unknown as DataTransfer,
+    });
+
+    expect(setData).toHaveBeenCalledWith('from', 'e2');
+    expect(onDragStartPiece).toHaveBeenCalledWith('e2');
   });
 
   it('calls onDropPiece with from/to on drop', () => {
