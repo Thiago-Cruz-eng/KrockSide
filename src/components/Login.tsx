@@ -9,8 +9,6 @@ interface FormData {
   email: string;
   password: string;
   passwordConfirmation: string;
-  dateBirth: string;
-  phoneNumber: string;
 }
 
 const initialForm: FormData = {
@@ -18,8 +16,6 @@ const initialForm: FormData = {
   email: '',
   password: '',
   passwordConfirmation: '',
-  dateBirth: '',
-  phoneNumber: '',
 };
 
 const Login: React.FC = () => {
@@ -66,19 +62,25 @@ const Login: React.FC = () => {
       return;
     }
     try {
-      const response = await userApi.createUser({
-        userName: formData.username,
+      // POST /register: o servidor decide papel e autor, e devolve sessão pronta.
+      //
+      // Antes isto chamava POST /users enviando `dateBirth` e `phoneNumber` (que o backend
+      // não conhece) e navegava para o lobby sem token nenhum em mãos — porque a resposta
+      // daquele endpoint não traz token. A tela seguinte caía em "Sessão inválida".
+      const response = await userApi.register({
+        name: formData.username,
         email: formData.email,
         password: formData.password,
         passwordConfirmation: formData.passwordConfirmation,
-        dateBirth: formData.dateBirth || new Date().toISOString().slice(0, 10),
-        phoneNumber: formData.phoneNumber,
       });
-      if (response.success) {
-        navigate(`/chess-lobby/${response.userId}`);
-      } else {
+
+      if (!response.success || !response.userId || !response.accessToken) {
         setErrorMessage(response.message || 'Falha ao criar conta');
+        return;
       }
+
+      setTokens(response.userId, response.accessToken, response.refreshToken);
+      navigate(`/chess-lobby/${response.userId}`);
     } catch {
       setErrorMessage('Falha ao criar conta. Tente novamente.');
     }

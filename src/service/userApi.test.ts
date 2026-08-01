@@ -33,30 +33,56 @@ describe('userApi', () => {
     expect(res.userId).toBe('guid-1');
   });
 
-  it('createUser posts payload', async () => {
-    mock.onPost('users').reply((config) => {
-      const body = JSON.parse(config.data);
-      expect(body.userName).toBe('thiago');
+  it('register posts to /register and never sends a role', async () => {
+    let sent: Record<string, unknown> = {};
+    mock.onPost('register').reply((config) => {
+      sent = JSON.parse(config.data);
       return [
         200,
         {
           success: true,
+          message: 'Account created',
           userId: 'u2',
-          message: '',
-          email: '',
-          accessToken: '',
+          name: 'thiago',
+          email: 'a@b.com',
+          role: 'jogador',
+          accessToken: 'tok',
+          refreshToken: 'ref',
         },
       ];
     });
-    const res = await userApi.createUser({
-      userName: 'thiago',
+
+    const res = await userApi.register({
+      name: 'thiago',
       email: 'a@b.com',
       password: 'pw',
       passwordConfirmation: 'pw',
-      dateBirth: '2000-01-01',
-      phoneNumber: '123',
     });
+
     expect(res.success).toBe(true);
+    expect(res.accessToken).toBe('tok');
+    expect(res.role).toBe('jogador');
+    // O papel é do servidor: o cliente não tem como pedir outro.
+    expect(sent).not.toHaveProperty('role');
+    expect(sent).not.toHaveProperty('createdBy');
+    // Campos que o backend nunca conheceu e que saíram do formulário.
+    expect(sent).not.toHaveProperty('dateBirth');
+    expect(sent).not.toHaveProperty('phoneNumber');
+  });
+
+  it('createUser posts to /users with a role (admin path)', async () => {
+    mock.onPost('users').reply(200, { success: true, userId: 'u3', message: 'User created' });
+
+    const res = await userApi.createUser({
+      name: 'Admin criou',
+      email: 'novo@b.com',
+      password: 'pw',
+      passwordConfirmation: 'pw',
+      role: 'jogador',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.userId).toBe('u3');
   });
 
   it('canMove POSTs body with lowercase keys', async () => {

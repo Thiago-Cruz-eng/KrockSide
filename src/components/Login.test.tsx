@@ -11,13 +11,12 @@ vi.mock('../service/userApi', () => ({
   default: {
     login: vi.fn(),
     createUser: vi.fn(),
+    register: vi.fn(),
   },
 }));
 
 const mockedLogin = userApi.login as Mock<typeof userApi.login>;
-const mockedCreate = userApi.createUser as Mock<
-  typeof userApi.createUser
->;
+const mockedRegister = userApi.register as Mock<typeof userApi.register>;
 
 function renderLogin() {
   return render(
@@ -103,6 +102,6 @@ describe('Login', () => {
     await userEvent.type(screen.getByLabelText(/Nome de Usuário/i), 'thiago');
     await userEvent.click(screen.getByRole('button', { name: /Criar Conta/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/coincidem/i);
-    expect(mockedCreate).not.toHaveBeenCalled();
+    expect(mockedRegister).not.toHaveBeenCalled();
   });
 });

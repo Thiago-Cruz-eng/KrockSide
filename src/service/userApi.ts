@@ -2,6 +2,8 @@ import { api } from './Api';
 import {
   CanMoveRequest,
   CreateUserRequest,
+  RegisterRequest,
+  RegisterResponse,
   CreateUserResponse,
   GetUserResponse,
   GetValidationResponse,
@@ -25,6 +27,13 @@ import {
  * pela interface falhava sempre. Era a DT-02 deste repositório.
  */
 export const userApi = {
+  /** Auto-registro: o servidor fixa papel e autor, e devolve sessão pronta. */
+  async register(data: RegisterRequest): Promise<RegisterResponse> {
+    const res = await api.post<RegisterResponse>('register', data);
+    return res.data;
+  },
+
+  /** Criação administrativa. Exige `Role:Admin` — não é o caminho de cadastro do jogador. */
   async createUser(data: CreateUserRequest): Promise<CreateUserResponse> {
     const res = await api.post<CreateUserResponse>('users', data);
     return res.data;

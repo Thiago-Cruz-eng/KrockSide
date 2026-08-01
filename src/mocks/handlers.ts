@@ -37,13 +37,16 @@ export const handlers = [
     }),
   ),
 
-  http.post(`${BASE}/users`, async ({ request }) => {
+  http.post(`${BASE}/register`, async ({ request }) => {
     const body = (await request.json()) as { email: string };
     return HttpResponse.json({
       success: true,
       userId: 'guid-2',
       email: body.email,
       accessToken: 'fake-jwt-3',
+      refreshToken: 'fake-refresh-3',
+      name: 'Registrada',
+      role: 'jogador',
       message: 'created',
     });
   }),
