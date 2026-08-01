@@ -1,20 +1,21 @@
 import React from 'react';
+import type { Mock } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Login from './Login';
 import userApi from '../service/userApi';
 
-jest.mock('../service/userApi', () => ({
+vi.mock('../service/userApi', () => ({
   __esModule: true,
   default: {
-    login: jest.fn(),
-    createUser: jest.fn(),
+    login: vi.fn(),
+    createUser: vi.fn(),
   },
 }));
 
-const mockedLogin = userApi.login as jest.MockedFunction<typeof userApi.login>;
-const mockedCreate = userApi.createUser as jest.MockedFunction<
+const mockedLogin = userApi.login as Mock<typeof userApi.login>;
+const mockedCreate = userApi.createUser as Mock<
   typeof userApi.createUser
 >;
 
@@ -28,7 +29,7 @@ function renderLogin() {
 
 describe('Login', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
   });

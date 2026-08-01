@@ -1,10 +1,12 @@
 import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 
+// Vite expõe apenas as variáveis prefixadas com VITE_, via import.meta.env. As antigas
+// REACT_APP_* eram substituídas em tempo de build pelo react-scripts e não existem mais.
 export const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL ?? 'https://localhost:5001/';
+  import.meta.env.VITE_API_BASE_URL ?? 'https://localhost:5001/';
 
 export const HUB_URL =
-  process.env.REACT_APP_HUB_URL ?? 'https://localhost:5001/chesshub';
+  import.meta.env.VITE_HUB_URL ?? 'https://localhost:5001/chesshub';
 
 const ACCESS_TOKEN_KEY = (userId: string) => `accessToken${userId}`;
 const REFRESH_TOKEN_KEY = (userId: string) => `refreshToken${userId}`;
@@ -55,7 +57,14 @@ export function createApi(baseURL: string = API_BASE_URL): AxiosInstance {
   return instance;
 }
 
-const axiosInstance = createApi();
+/**
+ * Instância única usada por `api`. Exportada para que os testes anexem um
+ * axios-mock-adapter à instância real, em vez de reconstruí-la com `vi.mock` +
+ * `require('axios')` — o `require` nem existe mais, agora que o pacote é ESM.
+ */
+export const httpClient = createApi();
+
+const axiosInstance = httpClient;
 
 export const api = {
   get: <T>(url: string, config?: AxiosRequestConfig) =>

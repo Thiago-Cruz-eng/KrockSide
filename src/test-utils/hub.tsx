@@ -16,7 +16,6 @@ export function createFakeHub(
   };
 
   const hub: FakeHub = {
-    connection: null,
     state: initialState,
     invoke: (method, ...args) => invokeImpl(method, ...args) as Promise<never>,
     on: (event, handler) => {

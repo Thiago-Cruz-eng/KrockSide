@@ -15,12 +15,13 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
+    // `npm start` agora sobe o Vite, com a porta fixada em 3000 no vite.config.ts.
     command: 'npm start',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     env: {
-      BROWSER: 'none',
-      REACT_APP_E2E: 'true',
+      // BROWSER=none era do react-scripts, que abria uma aba sozinho; o Vite não abre.
+      VITE_E2E: 'true',
     },
     timeout: 120_000,
   },

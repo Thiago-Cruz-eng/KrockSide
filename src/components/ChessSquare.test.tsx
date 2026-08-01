@@ -24,9 +24,9 @@ function renderSquare(
     highlighted: false,
     disabled: false,
     canDrag: false,
-    onSelect: jest.fn(),
-    onDropPiece: jest.fn(),
-    onDragStartPiece: jest.fn(),
+    onSelect: vi.fn(),
+    onDropPiece: vi.fn(),
+    onDragStartPiece: vi.fn(),
     ...props,
   };
   return { utils: render(<ChessSquare {...merged} />), props: merged };
@@ -47,9 +47,9 @@ describe('ChessSquare', () => {
         highlighted={false}
         disabled={false}
         canDrag={false}
-        onSelect={jest.fn()}
-        onDropPiece={jest.fn()}
-        onDragStartPiece={jest.fn()}
+        onSelect={vi.fn()}
+        onDropPiece={vi.fn()}
+        onDragStartPiece={vi.fn()}
       />,
     );
     expect(screen.getByTestId('square-e2').className).not.toContain('highlighted');
@@ -69,7 +69,7 @@ describe('ChessSquare', () => {
   });
 
   it('calls onSelect with algebraic + piece on click', () => {
-    const onSelect = jest.fn();
+    const onSelect = vi.fn();
     const piece: PieceDto = { type: 'Knight', color: 'White', isInCheckState: false };
     renderSquare({ square: makeSquare({ piece }), onSelect });
     fireEvent.click(screen.getByTestId('square-e2'));
@@ -77,7 +77,7 @@ describe('ChessSquare', () => {
   });
 
   it('does not call onSelect when disabled', () => {
-    const onSelect = jest.fn();
+    const onSelect = vi.fn();
     renderSquare({ disabled: true, onSelect });
     fireEvent.click(screen.getByTestId('square-e2'));
     expect(onSelect).not.toHaveBeenCalled();
@@ -98,17 +98,17 @@ describe('ChessSquare', () => {
         highlighted={false}
         disabled={false}
         canDrag={false}
-        onSelect={jest.fn()}
-        onDropPiece={jest.fn()}
-        onDragStartPiece={jest.fn()}
+        onSelect={vi.fn()}
+        onDropPiece={vi.fn()}
+        onDragStartPiece={vi.fn()}
       />,
     );
     expect(screen.getByAltText('White Pawn')).toHaveAttribute('draggable', 'false');
   });
 
   it('does not publish a drag source when canDrag is false', () => {
-    const onDragStartPiece = jest.fn();
-    const setData = jest.fn();
+    const onDragStartPiece = vi.fn();
+    const setData = vi.fn();
     const piece: PieceDto = { type: 'Pawn', color: 'Black', isInCheckState: false };
     renderSquare({ square: makeSquare({ piece }), canDrag: false, onDragStartPiece });
 
@@ -121,8 +121,8 @@ describe('ChessSquare', () => {
   });
 
   it('publishes the drag source and notifies the board when canDrag is true', () => {
-    const onDragStartPiece = jest.fn();
-    const setData = jest.fn();
+    const onDragStartPiece = vi.fn();
+    const setData = vi.fn();
     const piece: PieceDto = { type: 'Pawn', color: 'White', isInCheckState: false };
     renderSquare({ square: makeSquare({ piece }), canDrag: true, onDragStartPiece });
 
@@ -135,7 +135,7 @@ describe('ChessSquare', () => {
   });
 
   it('calls onDropPiece with from/to on drop', () => {
-    const onDropPiece = jest.fn();
+    const onDropPiece = vi.fn();
     renderSquare({ onDropPiece });
     const target = screen.getByTestId('square-e2');
     const dataTransfer = {

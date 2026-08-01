@@ -16,7 +16,10 @@ import React, {
 import { HUB_URL, getStoredToken } from '../service/Api';
 
 export interface HubConnectionApi {
-  connection: HubConnection | null;
+  // `connection: HubConnection | null` saiu daqui. A conexão só é criada dentro do
+  // efeito, depois do primeiro render, então o valor exposto no contexto era null
+  // justamente quando alguém quisesse usá-lo — e ninguém usava. Quem precisa falar com
+  // o hub usa `invoke`/`on`.
   state: HubConnectionState;
   invoke: <T = unknown>(method: string, ...args: unknown[]) => Promise<T>;
   on: (event: string, handler: (...args: unknown[]) => void) => () => void;
@@ -49,13 +52,17 @@ export const HubProvider: React.FC<HubProviderProps> = ({
   children,
 }) => {
   const connectionRef = useRef<HubConnection | null>(null);
-  const [state, setState] = useState<HubConnectionState>(HubConnectionState.Disconnected);
+  // Começa em Connecting porque o provider abre a conexão no primeiro efeito, sempre.
+  // Antes iniciava em Disconnected e chamava setState(Connecting) dentro do efeito, o
+  // que é uma escrita de estado síncrona em efeito sem ganho nenhum.
+  const [state, setState] = useState<HubConnectionState>(HubConnectionState.Connecting);
 
   // `factory` fora do array de dependências, atrás de um ref: quem passasse uma arrow
   // inline recriava a função a cada render, e o efeito derrubava e reabria a conexão
-  // SignalR junto — a partida caía a cada re-render do provider.
+  // SignalR junto — a partida caía a cada re-render do provider. O ref é inicializado
+  // no primeiro render e deliberadamente não é ressincronizado: a fábrica que vale é a
+  // do momento da montagem.
   const factoryRef = useRef(factory);
-  factoryRef.current = factory;
 
   useEffect(() => {
     const build = factoryRef.current;
@@ -67,7 +74,6 @@ export const HubProvider: React.FC<HubProviderProps> = ({
     conn.onreconnected(onStateChange);
     conn.onclose(onStateChange);
 
-    setState(HubConnectionState.Connecting);
     conn
       .start()
       .then(() => setState(conn.state))
@@ -104,7 +110,7 @@ export const HubProvider: React.FC<HubProviderProps> = ({
   );
 
   const value = useMemo<HubConnectionApi>(
-    () => ({ connection: connectionRef.current, state, invoke, on }),
+    () => ({ state, invoke, on }),
     [state, invoke, on],
   );
 

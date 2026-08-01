@@ -78,7 +78,8 @@ const ChessSquare: React.FC<ChessSquareProps> = ({
     >
       {piece && piece.type !== 'None' && (
         <img
-          src={`${process.env.PUBLIC_URL}/${piece.color.toLowerCase()}-${piece.type.toLowerCase()}.png`}
+          // BASE_URL do Vite substitui PUBLIC_URL do CRA e ja termina com '/'.
+          src={`${import.meta.env.BASE_URL}${piece.color.toLowerCase()}-${piece.type.toLowerCase()}.png`}
           alt={`${piece.color} ${piece.type}`}
           draggable={canDrag}
           onDragStart={handleDragStart}

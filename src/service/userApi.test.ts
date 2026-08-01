@@ -1,36 +1,16 @@
 import MockAdapter from 'axios-mock-adapter';
-
-jest.mock('./Api', () => {
-  const axiosLib = require('axios');
-  const axiosFactory = axiosLib.default || axiosLib;
-  const instance = axiosFactory.create({ baseURL: 'http://test/' });
-  return {
-    __esModule: true,
-    __instance: instance,
-    api: {
-      get: (url: string, c?: object) => instance.get(url, c),
-      post: (url: string, d?: unknown, c?: object) => instance.post(url, d, c),
-      put: (url: string, d?: unknown, c?: object) => instance.put(url, d, c),
-      delete: (url: string, c?: object) => instance.delete(url, c),
-    },
-    API_BASE_URL: 'http://test/',
-    HUB_URL: 'http://test/hub',
-    getStoredToken: () => null,
-    getStoredRefreshToken: () => null,
-    setStoredTokens: () => undefined,
-    clearStoredTokens: () => undefined,
-    createApi: () => instance,
-  };
-});
-
 import userApi from './userApi';
-const ApiModule = require('./Api');
+import { httpClient } from './Api';
 
+// Antes este arquivo substituía o módulo Api inteiro com vi.mock e reconstruía a
+// instância axios via require('axios'). O require não sobrevive ao pacote virar ESM,
+// e a duplicata desviava do wiring real. Agora o adaptador é anexado à instância que
+// a aplicação de fato usa, então interceptores e baseURL entram no teste.
 describe('userApi', () => {
-  let mock = new MockAdapter(ApiModule.__instance);
+  let mock = new MockAdapter(httpClient);
 
   beforeEach(() => {
-    mock = new MockAdapter(ApiModule.__instance);
+    mock = new MockAdapter(httpClient);
   });
 
   afterEach(() => mock.restore());
