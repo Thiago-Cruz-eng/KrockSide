@@ -42,7 +42,12 @@ export interface JoinRoomResponse {
   connectionId: string | null;
   player: string | null;
   room: string | null;
+  /** Cor efetivamente atribuida pelo servidor. */
   color: Color | null;
+  /** Igual a `color`; nome que deixa explícito que a decisão é do servidor. */
+  assignedColor?: Color | null;
+  /** Falso quando a cor pedida estava tomada e o servidor atribuiu a outra. */
+  preferenceHonoured?: boolean;
 }
 
 export interface StartGameResponse {

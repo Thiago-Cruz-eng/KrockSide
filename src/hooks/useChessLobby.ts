@@ -3,7 +3,7 @@ import { HubConnectionState } from '@microsoft/signalr';
 import { useHubConnection } from './useHubConnection';
 import { useAuth } from './useAuth';
 import userApi from '../service/userApi';
-import { setAssignedColor } from '../service/gameSession';
+import { setAssignedColor, setPlayerName } from '../service/gameSession';
 import {
   Color,
   CreateRoomResponse,
@@ -141,15 +141,28 @@ export function useChessLobby(userId: string | undefined): ChessLobbyApi {
           if (!updated) return null;
         }
 
-        const joinResult = await invoke<JoinRoomResponse>('JoinRoom', user.userName, room);
+        // A cor pedida vai para o servidor, que a atende quando está livre. Antes ele
+        // atribuía só por ordem de chegada e ignorava a escolha do jogador.
+        const joinResult = await invoke<JoinRoomResponse>(
+          'JoinRoom',
+          user.userName,
+          room,
+          preferredColor,
+        );
         if (!joinResult.room || !joinResult.color || joinResult.color === 'None') {
           setErrorMessage('Falha ao entrar na sala.');
           return null;
         }
 
-        // O servidor é a autoridade sobre a cor; preferredColor é só pedido. Guardamos a
-        // resposta dele, que é o que o tabuleiro precisa para saber de quem é a vez.
+        // O servidor continua sendo a autoridade: guardamos a cor que ELE devolveu.
         setAssignedColor(room, joinResult.color);
+        setPlayerName(room, user.userName);
+
+        if (joinResult.preferenceHonoured === false) {
+          setErrorMessage(
+            `A cor ${preferredColor} já estava tomada — você joga de ${joinResult.color}.`,
+          );
+        }
 
         return `/chess-board/${room}/${userId}`;
       } catch (err) {

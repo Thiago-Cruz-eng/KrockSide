@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { HubConnectionState } from '@microsoft/signalr';
 import { useHubConnection } from './useHubConnection';
+import { getAssignedColor, getPlayerName, setAssignedColor } from '../service/gameSession';
 import {
   BoardChangedEvent,
   BoardSnapshot,
   Color,
+  JoinRoomResponse,
   MakeMoveResponse,
   PossibleMovesResponse,
   SquareDto,
@@ -52,6 +54,34 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
     }
   }, [invoke, roomName]);
 
+  /**
+   * Reentra na sala antes de qualquer outra coisa.
+   *
+   * O SignalR reconecta sozinho depois de uma queda, mas com um ConnectionId novo — e o
+   * servidor já liberou o assento anterior. Sem reentrar, o tabuleiro continuava na tela
+   * e toda jogada respondia "You are not in this room"; F5 tinha o mesmo efeito.
+   *
+   * É seguro chamar sempre: se a conexão já tem assento, o servidor devolve a mesma cor
+   * sem alterar nada. A cor pedida é a que já foi atribuída, para recuperar o mesmo lado.
+   */
+  const rejoin = useCallback(async () => {
+    if (!roomName) return;
+    const playerName = getPlayerName(roomName);
+    if (!playerName) return;
+
+    try {
+      const result = await invoke<JoinRoomResponse>(
+        'JoinRoom',
+        playerName,
+        roomName,
+        getAssignedColor(roomName),
+      );
+      if (result.color && result.color !== 'None') setAssignedColor(roomName, result.color);
+    } catch (err) {
+      console.error('Rejoin failed:', err);
+    }
+  }, [invoke, roomName]);
+
   const start = useCallback(async () => {
     if (!roomName) return;
     try {
@@ -86,7 +116,10 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
 
   useEffect(() => {
     if (state !== HubConnectionState.Connected) return;
-    void start();
+
+    // Reentrar primeiro, iniciar depois: sem assento na sala, StartGame e MakeMove são
+    // recusados. Roda também na primeira conexão, onde é inofensivo.
+    void rejoin().then(start);
 
     const offBoardChanged = on('BoardChanged', (...args) => {
       const payload = args[0] as BoardChangedEvent;
@@ -108,7 +141,7 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
       offGameStarted();
       offPlayerJoined();
     };
-  }, [state, start, on]);
+  }, [state, rejoin, start, on]);
 
   const requestPossibleMoves = useCallback(
     async (from: string): Promise<PossibleMovesResponse> => {
