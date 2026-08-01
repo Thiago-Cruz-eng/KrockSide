@@ -11,12 +11,17 @@ React + TypeScript chess multiplayer frontend. Backend: ASP.NET Core SignalR hub
 
 ## Stack
 
-- React 18 + TypeScript 4.9 (CRA)
+- React 18 + TypeScript 5.9, empacotado por **Vite 7**
 - `@microsoft/signalr` (oficial) via hook `useHubConnection`
 - `axios` com `Authorization: Bearer` interceptor
 - `react-router-dom` 6
-- Jest + RTL + MSW (unit & integration)
+- **Vitest 3** + RTL 16 + MSW 2 (unit & integration)
 - Playwright (E2E)
+- ESLint 9 (flat config) + typescript-eslint
+
+> O `create-react-app` saiu em 2026-08-01. O relatório da migração e dos bugs corrigidos
+> na mesma rodada está em
+> [`Hibrygame/docs/refactor-2026-08-01.md`](../Hibrygame/docs/refactor-2026-08-01.md).
 
 ## Setup
 
@@ -30,19 +35,28 @@ npm start
 
 | Var | Default | Descrição |
 |-----|---------|-----------|
-| `REACT_APP_API_BASE_URL` | `https://localhost:5001/` | REST API |
-| `REACT_APP_HUB_URL` | `https://localhost:5001/chesshub` | SignalR hub |
+| `VITE_API_BASE_URL` | `https://localhost:5001/` | REST API |
+| `VITE_HUB_URL` | `https://localhost:5001/chesshub` | SignalR hub |
+
+O Vite só expõe ao cliente variáveis com o prefixo `VITE_`. As antigas `REACT_APP_*` eram
+substituídas em build pelo `react-scripts` e não têm mais efeito.
 
 ## Scripts
 
 | Script | Função |
 |--------|--------|
-| `npm start` | Dev server `localhost:3000` |
-| `npm test` | Jest watch |
-| `npm run test:ci` | Jest single-run com coverage |
-| `npm run build` | Build de produção |
+| `npm start` (ou `npm run dev`) | Dev server `localhost:3000` |
+| `npm test` | Vitest single-run |
+| `npm run test:watch` | Vitest em watch |
+| `npm run test:ci` | Vitest com coverage |
+| `npm run lint` | ESLint, falha em qualquer aviso |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run build` | `tsc --noEmit` + build de produção em `build/` |
 | `npm run test:e2e` | Playwright headless |
 | `npm run test:e2e:ui` | Playwright UI mode |
+
+A porta 3000 é fixada em `vite.config.ts` com `strictPort`, e não é preferência: o CORS do
+backend libera exatamente `http://localhost:3000` e o Playwright aponta para lá.
 
 ## Arquitetura
 

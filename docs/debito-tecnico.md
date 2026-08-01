@@ -7,6 +7,12 @@ e caminho de saída. Item marcado `[DECISÃO]` exige definição humana antes de
 
 - Item resolvido **sai** desta lista e é citado no PR que o resolveu.
 - Ao encontrar divergência nova, registre aqui **antes** de corrigir de passagem.
+
+> **Revisão 2026-08-01** (`refactor/motor-xadrez-modernizacao`). Saíram desta lista: **DT-01**
+> (a cor agora vem de `JoinRoom`, guardada em `src/service/gameSession.ts` — o tabuleiro voltou a
+> aceitar jogada), **DT-08** (o primeiro jogador navega ao entrar, e o tabuleiro espera o
+> adversário em vez de mostrar erro) e **DT-12** (MSW 2). Entrou **DT-15**. Relatório completo em
+> [`../../Hibrygame/docs/refactor-2026-08-01.md`](../../Hibrygame/docs/refactor-2026-08-01.md).
 - A fonte de verdade do que o backend entrega é `docs/FRONTEND_CHANGES.md` **do repositório
   `../Hibrygame`**, não este arquivo e não o código atual deste repositório.
 
@@ -21,39 +27,21 @@ e caminho de saída. Item marcado `[DECISÃO]` exige definição humana antes de
 
 ## Severidade alta — o jogo não funciona
 
-### DT-01 — a cor do jogador é lida do claim `role`, então nenhuma jogada é possível
+### DT-15 — regra `react-hooks/set-state-in-effect` desligada
 
-`ChessBoard.tsx` resolve a cor assim:
+Regra do `eslint-plugin-react-hooks 7`, voltada ao React Compiler. Acusa três sítios que são o
+padrão "carregar na montagem" — `useChessGame` (`void start()`), `useChessLobby`
+(`void loadRooms()`) e `useAuth` (ressincroniza o token quando o `userId` da rota muda) — onde o
+`setState` acontece depois de um `await`, e o linter acusa o sítio da chamada.
 
-```ts
-function selfColor(decodedRole?: string): Color {
-  if (decodedRole === 'white') return 'White';
-  if (decodedRole === 'black') return 'Black';
-  return 'None';
-}
-const playerColor = selfColor(decoded?.role);
-const isMyTurn = playerColor !== 'None' && playerColor === currentTurn;
-```
+Desligada em 2026-08-01, com a razão escrita no próprio `eslint.config.js`. No mesmo lote, os
+erros de `react-hooks/refs` **eram** bugs reais e foram corrigidos: `connection` saiu do contexto
+do hub (era sempre `null` no primeiro render) e a reatribuição de `factoryRef.current` durante o
+render foi removida.
 
-Três problemas encadeados:
-
-1. o claim `role` do JWT carrega **papel de permissão** do backend (`"jogador"`,
-   `"jogador principal"`, `"lider de time"`, `"adm"`, `"super adm"`), nunca `"white"`/`"black"`;
-2. o backend emite o papel com `new Claim(ClaimTypes.Role, ...)`, que no payload do JWT vira a
-   chave longa `http://schemas.microsoft.com/ws/2008/06/identity/claims/role` — então
-   `decoded.role` é `undefined` de qualquer forma;
-3. logo `playerColor === 'None'` sempre, `isMyTurn` é sempre `false`, e `ChessSquare` recebe
-   `disabled={true}` em **todos** os 64 quadrados: clique e drop são ignorados.
-
-A cor correta vem do servidor, em dois lugares: `JoinRoomResponse.color` (retorno de `JoinRoom`) e
-`PlayerJoinedEvent.color`/`players[].color`.
-
-- **Arquivos**: `src/components/ChessBoard.tsx`, `src/components/ChessLobby.tsx`,
-  `src/hooks/useAuth.ts`, `src/types/auth.ts`
-- **Saída**: propagar a cor do `JoinRoom` do lobby para o tabuleiro (contexto, estado de rota ou
-  `sessionStorage` por sala) e remover `selfColor`. Enquanto não houver cor confirmada pelo
-  servidor, o tabuleiro deve mostrar estado "aguardando" — não `disabled` silencioso.
-  Cobre o Princípio I item 4.
+- **Arquivo**: `eslint.config.js`
+- **Saída**: reescrever os três com `useSyncExternalStore` (ou equivalente) e religar a regra. É
+  refactor da camada de estado, não conserto pontual.
 
 ### DT-02 — quatro rotas REST divergem do backend real
 
@@ -152,25 +140,13 @@ seria o caminho correto para reconexão.
   quando o snapshot indicar `started === false` e houver dois jogadores — ou mover `StartGame` para
   uma ação explícita do lobby.
 
-### DT-08 — navegação para o tabuleiro depende de corrida no lobby
-
-`handleJoinRoom` navega só quando `GetPlayersInRoom(room) === 2`, checado **imediatamente após** o
-próprio `JoinRoom`. O primeiro jogador a entrar vê `1` e fica preso no lobby: ele só sai de lá se
-recarregar e entrar de novo depois do segundo. O evento `PlayerJoined` já é assinado, mas o handler
-só atualiza a lista de jogadores; o handler de `GameStarted` está vazio, com um comentário
-admitindo o problema.
-
-- **Arquivo**: `src/components/ChessLobby.tsx`
-- **Saída**: navegar a partir do evento — `PlayerJoined` com `players.length === 2`, ou
-  `GameStarted` — em vez de consultar contagem logo após entrar.
-
 ### DT-09 — o tabuleiro nunca é invertido para as pretas
 
 `ChessBoard` monta o grid com `col` de 0→7 (rank 8 no topo) e `row` de 0→7 (arquivo `a`→`h`), fixo.
 Está correto para as brancas e de cabeça para baixo para as pretas.
 
-- **Saída**: inverter a ordem de iteração quando `playerColor === 'Black'`. Depende de DT-01 estar
-  resolvido (hoje não há cor confiável para decidir).
+- **Saída**: inverter a ordem de iteração quando `playerColor === 'Black'`. Desbloqueado desde
+  2026-08-01: `getAssignedColor` já dá a cor confiável que faltava para decidir.
 
 ### DT-10 — o fluxo de validação do lobby é frágil e provavelmente desnecessário
 
@@ -190,21 +166,14 @@ Ou seja: o seletor de cor do lobby não tem efeito real na cor da partida.
 
 ## Severidade baixa
 
-### DT-11 — sem gate automatizado de lint, tipo e teste
+### DT-11 — sem gate de CI, e sem formatter
 
-Não há workflow de CI, ESLint próprio, Prettier nem checagem de tipo separada. `npm run build`
-falha em erro de tipo, mas ninguém garante que ele rode antes do merge.
+Parcialmente resolvido em 2026-08-01: ao sair o `react-scripts`, o lint passou a ser explícito
+(ESLint 9 flat config + typescript-eslint), e existem `npm run lint` e `npm run typecheck`. Falta:
 
-- **Saída**: `.github/workflows/ci.yml` com `npm ci`, `npx tsc --noEmit`, `npm run test:ci` e
-  `npm run build` (foi adicionado junto com este harness — confirme que roda verde na primeira
-  execução real, já que não foi possível rodar localmente).
-
-### DT-12 — MSW v1 (API legada)
-
-`src/mocks/handlers.ts` usa `rest` de `msw@1`. A v2 troca para `http` e muda a assinatura dos
-resolvers. Não é urgente, mas a v1 não recebe mais correção.
-
-- **Saída**: migração só quando houver motivo (bug ou dependência transitiva). Não é ganho por si.
+- workflow de CI que rode `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test:ci` e
+  `npm run build` antes do merge — hoje nada garante que rodem;
+- formatter (Prettier ou o formatador do ESLint), que continua não existindo.
 
 ### DT-13 — `SquareDto` de fallback é construído no componente
 
