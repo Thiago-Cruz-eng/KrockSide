@@ -28,7 +28,7 @@ export const handlers = [
     });
   }),
 
-  http.post(`${BASE}/refresh`, () =>
+  http.post(`${BASE}/refresh-token`, () =>
     HttpResponse.json({
       success: true,
       accessToken: 'fake-jwt-2',
@@ -37,7 +37,7 @@ export const handlers = [
     }),
   ),
 
-  http.post(`${BASE}/create`, async ({ request }) => {
+  http.post(`${BASE}/users`, async ({ request }) => {
     const body = (await request.json()) as { email: string };
     return HttpResponse.json({
       success: true,
@@ -48,7 +48,7 @@ export const handlers = [
     });
   }),
 
-  http.get(`${BASE}/get/:id`, ({ params }) =>
+  http.get(`${BASE}/users/:id`, ({ params }) =>
     HttpResponse.json({
       userName: `user-${params.id as string}`,
       email: `${params.id as string}@b.com`,

@@ -34,7 +34,7 @@ describe('userApi', () => {
   });
 
   it('createUser posts payload', async () => {
-    mock.onPost('create').reply((config) => {
+    mock.onPost('users').reply((config) => {
       const body = JSON.parse(config.data);
       expect(body.userName).toBe('thiago');
       return [
@@ -108,7 +108,7 @@ describe('userApi', () => {
   });
 
   it('refresh POSTs to /refresh', async () => {
-    mock.onPost('refresh').reply(200, {
+    mock.onPost('refresh-token').reply(200, {
       success: true,
       accessToken: 'new',
       refreshToken: 'new-r',
@@ -119,7 +119,7 @@ describe('userApi', () => {
   });
 
   it('getUser GETs by id', async () => {
-    mock.onGet('get/u1').reply(200, { userName: 'thiago', email: 'a@b.com' });
+    mock.onGet('users/u1').reply(200, { userName: 'thiago', email: 'a@b.com' });
     const res = await userApi.getUser('u1');
     expect(res.userName).toBe('thiago');
   });

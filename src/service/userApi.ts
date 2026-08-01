@@ -12,14 +12,26 @@ import {
   UpdateValidationRequest,
 } from '../types/auth';
 
+/**
+ * Rotas conferidas contra o backend real em 2026-08-01 (UserController e
+ * ValidationController). Três delas apontavam para endpoints que não existem e
+ * respondiam 404 em produção:
+ *
+ *   'create'      -> 'users'          POST   /users
+ *   'get/{id}'    -> 'users/{id}'     GET    /users/{id}
+ *   'refresh'     -> 'refresh-token'  POST   /refresh-token
+ *
+ * A de `getUser` era a mais grave: é chamada ao entrar numa sala, então entrar em sala
+ * pela interface falhava sempre. Era a DT-02 deste repositório.
+ */
 export const userApi = {
   async createUser(data: CreateUserRequest): Promise<CreateUserResponse> {
-    const res = await api.post<CreateUserResponse>('create', data);
+    const res = await api.post<CreateUserResponse>('users', data);
     return res.data;
   },
 
   async getUser(id: string | undefined): Promise<GetUserResponse> {
-    const res = await api.get<GetUserResponse>(`get/${id}`);
+    const res = await api.get<GetUserResponse>(`users/${id}`);
     return res.data;
   },
 
@@ -29,7 +41,7 @@ export const userApi = {
   },
 
   async refresh(data: RefreshTokenRequest): Promise<RefreshTokenResponse> {
-    const res = await api.post<RefreshTokenResponse>('refresh', data);
+    const res = await api.post<RefreshTokenResponse>('refresh-token', data);
     return res.data;
   },
 
