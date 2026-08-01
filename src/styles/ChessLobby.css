@@ -1,81 +1,162 @@
-.ChessLobby {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    background-color: #e0ddd8; 
-    color: #493d2b;
-  }
-  
-  .lobby-container {
-    background: #c4b8aa;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    width: 300px;
-  }
-  
-  h2 {
-    text-align: center;
-  }
-  
-  .lobby-options button {
-    background-color: #7d6f54; 
-    color: white;
-    padding: 10px 15px;
-    margin-left: 10px;
-    margin-bottom: 10px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-  }
-  
-  .lobby-options button:hover {
-    background-color: #685b48; 
-  }
-  
-  .new-game-form button {
-    background-color: #7d6f54;
-    color: white;
-    padding: 10px 15px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-  }
-  
-  .new-game-form button:hover {
-    background-color: #685b48; 
-  }
-  
-  .existing-games {
-    text-align: center;
-  }
-  
-  .existing-games h3 {
-    margin-bottom: 10px;
-  }
-  
-  .existing-games ul {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-  }
-  
-  .existing-games li {
-    background-color: #a4937a;
-    margin-bottom: 5px;
-    padding: 8px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  .existing-games li:hover {
-    background-color: #8c7561; 
-  }
-  
-  .join-button {
-    margin-left: 120px;
-  }
+/*
+ * Lobby: cabeçalho, seletor de cor e grade de salas.
+ *
+ * Antes era uma lista `<ul>` com `.join-button { margin-left: 120px }` para alinhar na
+ * marreta, e um `h2` global que vazava para as outras telas.
+ */
+
+.lobby {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-7);
+}
+
+.lobby__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+
+.lobby__title {
+  font-size: var(--fs-2xl);
+}
+
+.lobby__subtitle {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: var(--sp-1);
+}
+
+/* ---- barra de ações ---- */
+
+.lobby__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.lobby__color {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.lobby__color-label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.lobby__create {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.lobby__create input {
+  min-width: 220px;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.lobby__create input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ---- grade de salas ---- */
+
+.rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sp-3);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.room {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.room:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.room__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.room__name {
+  font-family: var(--font-mono);
+  font-weight: 650;
+  font-size: var(--fs-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room__count {
+  flex-shrink: 0;
+}
+
+.room__players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  min-height: 26px;
+}
+
+.room__empty {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* ---- estado vazio ---- */
+
+.lobby__empty {
+  display: grid;
+  place-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-7) var(--sp-4);
+  text-align: center;
+  border-radius: var(--r-lg);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-muted);
+}
+
+.lobby__empty-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.lobby__error {
+  margin-bottom: var(--sp-4);
+}

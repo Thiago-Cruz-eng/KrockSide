@@ -21,6 +21,36 @@ export function getStoredRefreshToken(userId?: string | null): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY(userId));
 }
 
+/**
+ * Assinantes avisados quando a sessão guardada muda (login, logout, refresh).
+ *
+ * Existe por um bug de bloqueio: o HubProvider monta na raiz da aplicação, antes de
+ * qualquer login, então a primeira negociação com o `/chesshub` vai sem token e leva 401.
+ * O `withAutomaticReconnect` do SignalR só reage a uma conexão que caiu depois de ter
+ * subido — ele NÃO repete uma conexão inicial que falhou. Resultado: depois do login a
+ * conexão nunca era refeita, o lobby ficava permanentemente desconectado e mostrava
+ * "Nenhuma sala aberta" para sempre, sem erro visível.
+ *
+ * O evento `storage` do navegador não serve: ele não dispara na aba que fez a escrita.
+ */
+type SessionListener = () => void;
+const sessionListeners = new Set<SessionListener>();
+
+/** Assina mudanças de sessão. Devolve a função de cancelamento. */
+export function onSessionChange(listener: SessionListener): () => void {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
+
+function notifySessionChange(): void {
+  sessionListeners.forEach((listener) => listener());
+}
+
+/** Token da sessão corrente, ou null. É o que o hub usa para autenticar. */
+export function getCurrentToken(): string | null {
+  return getStoredToken(sessionStorage.getItem('currentUserId'));
+}
+
 export function setStoredTokens(
   userId: string,
   accessToken: string,
@@ -31,12 +61,14 @@ export function setStoredTokens(
     localStorage.setItem(REFRESH_TOKEN_KEY(userId), refreshToken);
   }
   sessionStorage.setItem('currentUserId', userId);
+  notifySessionChange();
 }
 
 export function clearStoredTokens(userId: string): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY(userId));
   localStorage.removeItem(REFRESH_TOKEN_KEY(userId));
   sessionStorage.removeItem('currentUserId');
+  notifySessionChange();
 }
 
 export function createApi(baseURL: string = API_BASE_URL): AxiosInstance {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import '../styles/ChessLobby.css';
 import { useChessLobby } from '../hooks/useChessLobby';
+import { PlayerInRoom } from '../types/chess';
 
 /**
  * Apresentação do lobby. Toda a orquestração — hub SignalR, chamadas REST, sequência de
@@ -13,6 +14,7 @@ const ChessLobby: React.FC = () => {
   const {
     rooms,
     playersByRoom,
+    connected,
     errorMessage,
     preferredColor,
     setPreferredColor,
@@ -20,95 +22,160 @@ const ChessLobby: React.FC = () => {
     joinRoom,
   } = useChessLobby(id);
 
-  const [isNewGame, setIsNewGame] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
+  const [busyRoom, setBusyRoom] = useState<string | null>(null);
 
-  const handleCreate = async () => {
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) return;
     await createRoom(newRoomName);
-    setIsNewGame(false);
     setNewRoomName('');
   };
 
   const handleJoin = async (room: string) => {
-    const route = await joinRoom(room);
-    if (route) navigate(route);
+    setBusyRoom(room);
+    try {
+      const route = await joinRoom(room);
+      if (route) navigate(route);
+    } finally {
+      setBusyRoom(null);
+    }
   };
 
+  const playerChip = (player: PlayerInRoom) => (
+    <span className="chip" key={player.name}>
+      {player.color !== 'None' && (
+        <span
+          className={`chip__dot chip__dot--${player.color === 'White' ? 'white' : 'black'}`}
+          aria-hidden="true"
+        />
+      )}
+      {player.name}
+    </span>
+  );
+
   return (
-    <div className="ChessLobby">
-      <h2>Jogos de Xadrez</h2>
-      {errorMessage && <div role="alert">{errorMessage}</div>}
-      <div className="lobby-container">
-        <div className="lobby-options">
-          <button onClick={() => setIsNewGame((v) => !v)}>
-            {isNewGame ? 'Entrar em um Jogo Existente' : 'Criar Novo Jogo'}
-          </button>
-          <button onClick={() => navigate('/')}>Voltar para o Login</button>
+    <div className="lobby">
+      <header className="lobby__header">
+        <div>
+          <h2 className="lobby__title">Partidas</h2>
+          <p className="lobby__subtitle">
+            Crie uma sala ou entre numa existente. A partida começa quando o segundo
+            jogador entra.
+          </p>
         </div>
-        {isNewGame ? (
-          <div className="new-game-form">
-            <input
-              type="text"
-              value={newRoomName}
-              onChange={(e) => setNewRoomName(e.target.value)}
-              placeholder="Enter room name"
-            />
-            <button onClick={handleCreate}>Criar Jogo</button>
+        <button className="btn btn--ghost" onClick={() => navigate('/')}>
+          Sair
+        </button>
+      </header>
+
+      {errorMessage && (
+        <div className="alert lobby__error" role="alert">
+          {errorMessage}
+        </div>
+      )}
+
+      {/*
+        Antes, sem conexão, o lobby simplesmente mostrava "Nenhuma sala aberta" — o usuário
+        não tinha como distinguir "não há salas" de "não estou conectado".
+      */}
+      {!connected && (
+        <div className="alert alert--info lobby__error" data-testid="hub-offline">
+          <span className="waiting__spinner" />
+          Conectando ao servidor de partidas…
+        </div>
+      )}
+
+      <div className="lobby__toolbar">
+        <div className="lobby__color">
+          <span className="lobby__color-label">Jogar de</span>
+          {/* Grupo segmentado com aria-pressed: acessível e sem dois botões soltos. */}
+          <div className="segmented" role="group" aria-label="Cor preferida">
+            <button
+              type="button"
+              aria-pressed={preferredColor === 'White'}
+              onClick={() => setPreferredColor('White')}
+            >
+              Brancas
+            </button>
+            <button
+              type="button"
+              aria-pressed={preferredColor === 'Black'}
+              onClick={() => setPreferredColor('Black')}
+            >
+              Pretas
+            </button>
           </div>
-        ) : (
-          <div className="existing-games">
-            <h3>Jogos Existentes</h3>
-            {rooms.length === 0 ? (
-              <p>Nenhum jogo foi criado até o momento.</p>
-            ) : (
-              <ul>
-                {rooms.map((name) => {
-                  const players = playersByRoom[name] ?? [];
-                  return (
-                    <li key={name}>
-                      {name}
-                      <button
-                        onClick={() => handleJoin(name)}
-                        className="join-button"
-                        disabled={players.length === 2 || !preferredColor}
-                      >
-                        Entrar na Sala
-                      </button>
-                      {players.length > 0 && (
-                        <div>
-                          <p>Jogadores na sala:</p>
-                          <ul>
-                            {players.map((player) => (
-                              <li key={player.name}>
-                                {player.name}
-                                {player.color !== 'None' ? ` (${player.color})` : ''}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      <div className="color-picker">
-                        <button
-                          onClick={() => setPreferredColor('Black')}
-                          disabled={preferredColor === 'Black'}
-                        >
-                          Preto
-                        </button>
-                        <button
-                          onClick={() => setPreferredColor('White')}
-                          disabled={preferredColor === 'White'}
-                        >
-                          Branco
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        )}
+        </div>
+
+        <form className="lobby__create" onSubmit={handleCreate}>
+          <input
+            type="text"
+            value={newRoomName}
+            onChange={(e) => setNewRoomName(e.target.value)}
+            placeholder="Nome da nova sala"
+            aria-label="Nome da nova sala"
+          />
+          {/* Desabilitado sem conexão: antes o clique estourava "Hub not connected" e a
+              única pista era um "Erro ao criar sala." genérico. */}
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={!newRoomName.trim() || !connected}
+          >
+            Criar sala
+          </button>
+        </form>
       </div>
+
+      {rooms.length === 0 ? (
+        <div className="lobby__empty">
+          <span className="lobby__empty-icon" aria-hidden="true">
+            ♟
+          </span>
+          <strong>Nenhuma sala aberta</strong>
+          <span>Crie a primeira e espere o adversário entrar.</span>
+        </div>
+      ) : (
+        <ul className="rooms">
+          {rooms.map((name) => {
+            const players = playersByRoom[name] ?? [];
+            const full = players.length >= 2;
+            return (
+              <li className="room" key={name}>
+                <div className="room__head">
+                  <span className="room__name">{name}</span>
+                  <span className="chip room__count">{players.length}/2</span>
+                </div>
+
+                <div className="room__players">
+                  {players.length === 0 ? (
+                    <span className="room__empty">Sala vazia</span>
+                  ) : (
+                    players.map(playerChip)
+                  )}
+                </div>
+
+                <button
+                  className="btn btn--primary btn--block"
+                  onClick={() => handleJoin(name)}
+                  disabled={full || !preferredColor || !connected || busyRoom === name}
+                >
+                  {busyRoom === name
+                    ? 'Entrando…'
+                    : full
+                      ? 'Sala cheia'
+                      : !connected
+                        ? 'Conectando…'
+                        : !preferredColor
+                          ? 'Escolha uma cor'
+                          : 'Entrar na sala'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 };

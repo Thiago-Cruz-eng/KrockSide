@@ -1,9 +1,20 @@
 import { http, HttpResponse } from 'msw';
+import { API_BASE_URL } from '../service/Api';
 
 // msw 2 trocou `rest` por `http`, e o trio (req, res, ctx) por um objeto de argumentos
 // que devolve HttpResponse. Os stubs abaixo respondem exatamente o mesmo de antes.
 
-const BASE = 'https://localhost:5001';
+/**
+ * Base derivada do próprio serviço, não uma constante repetida aqui.
+ *
+ * Estava fixo em 'https://localhost:5001'. Ao criar um `.env` local apontando a API para
+ * `http://localhost:5001/`, o Vitest carregou esse env, o axios passou a chamar `http` e
+ * nenhum handler casou — os testes de integração falharam com "Falha ao fazer login",
+ * que é o `catch` do componente, sugerindo bug de UI onde havia divergência de mock.
+ *
+ * Derivar da mesma fonte que a aplicação usa fecha essa classe de erro.
+ */
+const BASE = API_BASE_URL.replace(/\/+$/, '');
 
 export const handlers = [
   http.post(`${BASE}/login`, async ({ request }) => {

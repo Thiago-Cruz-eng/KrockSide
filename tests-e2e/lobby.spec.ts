@@ -34,6 +34,6 @@ test.describe('Lobby (mocked backend)', () => {
     await page.getByLabel('Senha').fill('pw');
     await page.getByRole('button', { name: 'Login' }).click();
     await expect(page).toHaveURL(/\/chess-lobby\//);
-    await expect(page.getByRole('heading', { name: /Jogos de Xadrez/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Partidas/ })).toBeVisible();
   });
 });

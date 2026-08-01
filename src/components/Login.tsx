@@ -21,6 +21,7 @@ const initialForm: FormData = {
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>(initialForm);
   const navigate = useNavigate();
   const { setTokens } = useAuth(undefined);
@@ -86,59 +87,88 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage(null);
-    if (isLogin) void handleLogin();
-    else void handleRegister();
+    setSubmitting(true);
+    try {
+      if (isLogin) await handleLogin();
+      else await handleRegister();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="App">
-      <div className="login-container">
-        <h2>{isLogin ? 'Login' : 'Criar Conta'}</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
+    <div className="auth">
+      <div className="auth__card">
+        <div className="auth__brand">
+          <span className="auth__logo" aria-hidden="true">
+            ♞
+          </span>
+          <span className="auth__brand-text">
+            <h2 className="auth__title">{isLogin ? 'Entrar' : 'Criar conta'}</h2>
+            <span className="auth__subtitle">
+              {isLogin ? 'Bem-vindo de volta ao KrockSide' : 'Comece a jogar em segundos'}
+            </span>
+          </span>
+        </div>
+
+        {errorMessage && (
+          <div className="alert auth__error" role="alert">
+            {errorMessage}
+          </div>
+        )}
+
+        <form className="auth__form" onSubmit={handleSubmit}>
+          <div className="field">
             <label htmlFor="email">E-mail</label>
             <input
               type="email"
               id="email"
               name="email"
+              autoComplete="email"
               value={formData.email}
               onChange={handleChange}
               required
             />
           </div>
-          <div className="form-group">
+
+          <div className="field">
             <label htmlFor="password">Senha</label>
             <input
               type="password"
               id="password"
               name="password"
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
               value={formData.password}
               onChange={handleChange}
               required
             />
           </div>
+
           {!isLogin && (
             <>
-              <div className="form-group">
+              <div className="field">
                 <label htmlFor="passwordConfirmation">Confirmar Senha</label>
                 <input
                   type="password"
                   id="passwordConfirmation"
                   name="passwordConfirmation"
+                  autoComplete="new-password"
                   value={formData.passwordConfirmation}
                   onChange={handleChange}
                   required
                 />
               </div>
-              <div className="form-group">
+
+              <div className="field">
                 <label htmlFor="username">Nome de Usuário</label>
                 <input
                   type="text"
                   id="username"
                   name="username"
+                  autoComplete="nickname"
                   value={formData.username}
                   onChange={handleChange}
                   required
@@ -146,16 +176,22 @@ const Login: React.FC = () => {
               </div>
             </>
           )}
-          <button type="submit">{isLogin ? 'Login' : 'Criar Conta'}</button>
+
+          <button
+            type="submit"
+            className="btn btn--primary btn--block auth__submit"
+            disabled={submitting}
+          >
+            {submitting ? 'Enviando…' : isLogin ? 'Login' : 'Criar Conta'}
+          </button>
         </form>
-        <p className="toggle-form" onClick={handleToggleForm}>
-          {isLogin ? 'Criar uma nova conta' : 'Já tem uma conta? Faça login'}
+
+        <p className="auth__toggle">
+          {isLogin ? 'Não tem conta? ' : 'Já tem uma conta? '}
+          <button type="button" onClick={handleToggleForm}>
+            {isLogin ? 'Criar uma nova conta' : 'Faça login'}
+          </button>
         </p>
-        {errorMessage && (
-          <div role="alert" className="response-message-popup">
-            <p>{errorMessage}</p>
-          </div>
-        )}
       </div>
     </div>
   );

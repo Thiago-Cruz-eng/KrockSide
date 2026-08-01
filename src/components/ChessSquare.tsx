@@ -1,47 +1,49 @@
 import React from 'react';
-import '../styles/ChessSquare.css';
-import '../styles/ChessPiece.css';
+import ChessPiece from './ChessPiece';
 import { PieceDto, SquareDto } from '../types/chess';
 
 export interface ChessSquareProps {
   square: SquareDto;
+  /** Destino legal para a peça selecionada — desenha o ponto de lance. */
   highlighted: boolean;
+  /** Casa de origem da seleção atual. */
+  selected: boolean;
+  /** Faz parte do último lance aplicado. */
+  lastMove: boolean;
+  /** O rei desta casa está em xeque. */
+  inCheck: boolean;
   /** Bloqueia clique e soltura — usado quando não é a vez do jogador. */
   disabled: boolean;
-  /**
-   * A peça desta casa pode ser arrastada: falso para casa vazia, para peça do
-   * adversário e fora da vez. O atributo `draggable` seguia apenas `disabled`, então
-   * na sua vez as peças do adversário também eram arrastáveis na tela.
-   */
+  /** A peça desta casa pode ser arrastada: é sua, é sua vez, e a partida não acabou. */
   canDrag: boolean;
+  /** Letra do arquivo a desenhar nesta casa (só na fileira de baixo), ou null. */
+  fileLabel: string | null;
+  /** Número da fileira a desenhar nesta casa (só na coluna da esquerda), ou null. */
+  rankLabel: number | null;
   onSelect: (algebraic: string, piece: PieceDto | null) => void;
   onDropPiece: (from: string, to: string) => void;
-  /** Avisa o tabuleiro para já buscar os destinos legais no início do arrasto. */
   onDragStartPiece: (algebraic: string) => void;
-}
-
-function getSizeClass(type: string): string {
-  const t = type.toLowerCase();
-  if (t === 'pawn') return 'small';
-  if (['rook', 'knight', 'bishop'].includes(t)) return 'medium';
-  if (t === 'queen') return 'medium-plus';
-  if (t === 'king') return 'large';
-  return '';
 }
 
 const ChessSquare: React.FC<ChessSquareProps> = ({
   square,
   highlighted,
+  selected,
+  lastMove,
+  inCheck,
   disabled,
   canDrag,
+  fileLabel,
+  rankLabel,
   onSelect,
   onDropPiece,
   onDragStartPiece,
 }) => {
   const { algebraic, squareColor, piece } = square;
+  const hasPiece = piece !== null && piece.type !== 'None';
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (!piece || !canDrag) {
+    if (!hasPiece || !canDrag) {
       e.preventDefault();
       return;
     }
@@ -64,27 +66,43 @@ const ChessSquare: React.FC<ChessSquareProps> = ({
     onSelect(algebraic, piece);
   };
 
-  const colorClass = squareColor === 'White' ? 'light' : 'dark';
-  const sizeClass = piece ? getSizeClass(piece.type) : '';
+  // `light`/`dark` são mantidos porque a suíte verifica a cor da casa por eles.
+  const classes = [
+    'square',
+    squareColor === 'White' ? 'light' : 'dark',
+    highlighted && 'highlighted',
+    selected && 'square--selected',
+    lastMove && 'square--lastmove',
+    inCheck && 'square--check',
+    canDrag && 'square--can-drag',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
       data-testid={`square-${algebraic}`}
       data-algebraic={algebraic}
-      className={`chess-square ${colorClass} ${highlighted ? 'highlighted' : ''}`}
+      className={classes}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onClick={handleClick}
     >
-      {piece && piece.type !== 'None' && (
-        <img
-          // BASE_URL do Vite substitui PUBLIC_URL do CRA e ja termina com '/'.
-          src={`${import.meta.env.BASE_URL}${piece.color.toLowerCase()}-${piece.type.toLowerCase()}.png`}
-          alt={`${piece.color} ${piece.type}`}
+      {rankLabel !== null && <span className="square__rank">{rankLabel}</span>}
+      {fileLabel !== null && <span className="square__file">{fileLabel}</span>}
+
+      {hasPiece && (
+        <ChessPiece
+          type={piece!.type}
+          color={piece!.color}
           draggable={canDrag}
           onDragStart={handleDragStart}
-          className={`chess-piece ${sizeClass}`}
         />
+      )}
+
+      {/* Ponto de destino legal. Anel quando há peça a capturar, disco quando vazio. */}
+      {highlighted && (
+        <span className={hasPiece ? 'square__hint square__hint--capture' : 'square__hint'} />
       )}
     </div>
   );

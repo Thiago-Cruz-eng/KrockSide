@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Login page', () => {
   test('renders login form', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: /Login/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Entrar/ })).toBeVisible();
     await expect(page.getByLabel('E-mail')).toBeVisible();
     await expect(page.getByLabel('Senha')).toBeVisible();
   });
@@ -11,7 +11,7 @@ test.describe('Login page', () => {
   test('toggles to register form', async ({ page }) => {
     await page.goto('/');
     await page.getByText('Criar uma nova conta').click();
-    await expect(page.getByRole('heading', { name: /Criar Conta/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Criar conta/i })).toBeVisible();
     await expect(page.getByLabel('Confirmar Senha')).toBeVisible();
   });
 

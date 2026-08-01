@@ -18,6 +18,8 @@ export type LobbyColor = 'White' | 'Black' | '';
 export interface ChessLobbyApi {
   rooms: string[];
   playersByRoom: Record<string, PlayerInRoom[]>;
+  /** Conexão com o hub pronta. Sem ela nada no lobby funciona, e o usuário precisa saber. */
+  connected: boolean;
   errorMessage: string | null;
   /** Cor pedida pelo jogador. O servidor atribui por ordem de entrada e pode não atender. */
   preferredColor: LobbyColor;
@@ -177,6 +179,7 @@ export function useChessLobby(userId: string | undefined): ChessLobbyApi {
   return {
     rooms,
     playersByRoom,
+    connected: state === HubConnectionState.Connected,
     errorMessage,
     preferredColor,
     setPreferredColor,

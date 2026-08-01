@@ -13,7 +13,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { HUB_URL, getStoredToken } from '../service/Api';
+import { HUB_URL, getCurrentToken, onSessionChange } from '../service/Api';
 
 export interface HubConnectionApi {
   // `connection: HubConnection | null` saiu daqui. A conexão só é criada dentro do
@@ -36,10 +36,7 @@ export interface HubProviderProps {
 function defaultFactory(url: string): HubConnection {
   return new HubConnectionBuilder()
     .withUrl(url, {
-      accessTokenFactory: () => {
-        const userId = sessionStorage.getItem('currentUserId');
-        return getStoredToken(userId) ?? '';
-      },
+      accessTokenFactory: () => getCurrentToken() ?? '',
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000])
     .configureLogging(LogLevel.Warning)
@@ -64,6 +61,22 @@ export const HubProvider: React.FC<HubProviderProps> = ({
   // do momento da montagem.
   const factoryRef = useRef(factory);
 
+  /**
+   * Reabre a conexão quando a sessão muda.
+   *
+   * O provider monta na raiz da aplicação, antes de qualquer login, então a primeira
+   * negociação com o `/chesshub` ia sem token e levava 401. O `withAutomaticReconnect` do
+   * SignalR só reage a uma conexão que caiu DEPOIS de ter subido — ele não repete uma
+   * conexão inicial que falhou. Sem isto, o token que aparece no login nunca era usado: o
+   * lobby ficava desconectado para sempre, mostrando "Nenhuma sala aberta" sem erro
+   * visível, e `CreateRoom` estourava "Hub not connected".
+   *
+   * O contador entra nas dependências do efeito, então uma mudança de sessão derruba a
+   * conexão antiga e abre outra, agora autenticada.
+   */
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  useEffect(() => onSessionChange(() => setSessionEpoch((n) => n + 1)), []);
+
   useEffect(() => {
     const build = factoryRef.current;
     const conn = build ? build() : defaultFactory(url);
@@ -74,6 +87,16 @@ export const HubProvider: React.FC<HubProviderProps> = ({
     conn.onreconnected(onStateChange);
     conn.onclose(onStateChange);
 
+    // Sem sessão não há o que negociar: o hub exige Role:Player. Ficar em Disconnected
+    // evita um 401 barulhento no console a cada carga da tela de login.
+    if (!build && !getCurrentToken()) {
+      setState(HubConnectionState.Disconnected);
+      return () => {
+        connectionRef.current = null;
+      };
+    }
+
+    setState(HubConnectionState.Connecting);
     conn
       .start()
       .then(() => setState(conn.state))
@@ -86,7 +109,7 @@ export const HubProvider: React.FC<HubProviderProps> = ({
       conn.stop().catch(() => undefined);
       connectionRef.current = null;
     };
-  }, [url]);
+  }, [url, sessionEpoch]);
 
   const invoke = useCallback(
     async <T,>(method: string, ...args: unknown[]): Promise<T> => {
