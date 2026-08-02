@@ -101,22 +101,39 @@
 
     --text: #1a1d23;
     --text-muted: #5b6472;
-    /* Era #8b95a5: 3,02:1 sobre branco, medido pelo axe. Este dá 4,83:1. */
-    --text-faint: #6b7280;
+    /*
+      Terceira tentativa, e as duas primeiras erraram pelo mesmo motivo: eu calculava contra
+      --surface (branco puro), mas estes elementos não ficam sobre branco.
+
+      #8b95a5 dava 3,02:1. #6b7280 dava 4,83:1 sobre branco — e 4,43:1 sobre --bg (#f4f5f7), que
+      é onde `.game__room-label` de fato vive. Reprovou por 0,07.
+
+      Este valor foi medido contra TODOS os fundos reais: 5,52:1 sobre --surface, 5,06:1 sobre
+      --bg, 4,84:1 sobre --surface-hover. A lição: verificar a cor contra o fundo em que ela é
+      renderizada, não contra o fundo mais claro da paleta.
+    */
+    --text-faint: #626977;
 
     /*
       Era #c97a12, e reprovava nos DOIS usos: 3,34:1 como texto sobre branco (o estado "Jogando
       agora") e os mesmos 3,34:1 como fundo de botão com texto branco. Não dava para resolver com
       um token só de texto — o botão primário precisa da própria cor de fundo acessível.
 
-      Este valor dá 5,38:1 nos dois casos. É visivelmente mais fechado que o âmbar do tema
-      escuro, e é o preço de ter texto pequeno sobre fundo branco: o tema claro não comporta o
-      mesmo tom.
+      #9a5c00 resolvia sobre branco (5,38:1) e ainda reprovava onde a cor realmente aparece: o
+      estado "Jogando agora" fica dentro do cartão ativo, cujo fundo é --accent-soft, e ali dava
+      4,21:1. Fundo mais escuro que branco, contraste menor — óbvio depois de medido.
+
+      Este valor foi verificado contra os quatro fundos reais: 7,36:1 sobre --surface, 6,75:1
+      sobre --bg, 6,45:1 sobre --surface-hover e 6,10:1 sobre --accent-soft. Serve também como
+      fundo de botão com --accent-contrast branco, que é o outro uso.
+
+      É bem mais fechado que o âmbar do tema escuro. Não é escolha estética: texto de 12px sobre
+      fundo claro não comporta o mesmo tom.
     */
-    --accent: #9a5c00;
-    --accent-hover: #7d4a00;
+    --accent: #7d4a00;
+    --accent-hover: #613900;
     --accent-contrast: #ffffff;
-    --accent-soft: rgba(154, 92, 0, 0.12);
+    --accent-soft: rgba(125, 74, 0, 0.12);
 
     --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
     --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.1);

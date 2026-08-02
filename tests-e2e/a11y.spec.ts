@@ -69,9 +69,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
 
     test('tela de cadastro', async ({ page }) => {
+      // Locators iguais aos de auth.spec.ts, de propósito. A primeira versão inventava um
+      // `link` com nome /cadastr/i e um botão /cadastrar/i — nenhum dos dois existe: a
+      // alternância é um `button` "Criar uma nova conta" e o envio é "Criar Conta". O teste
+      // não falhava por acessibilidade, ficava 90s esperando um elemento inexistente.
       await page.goto('/');
-      await page.getByRole('link', { name: /cadastr/i }).click();
-      await expect(page.getByRole('button', { name: /cadastrar/i })).toBeVisible();
+      await page.getByRole('button', { name: 'Criar uma nova conta' }).click();
+      await expect(page.getByRole('button', { name: 'Criar Conta' })).toBeVisible();
       await scan(page, 'cadastro');
     });
 
