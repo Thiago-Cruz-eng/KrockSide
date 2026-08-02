@@ -28,66 +28,88 @@ async function scan(page: Page, context: string) {
 
   // Falha com o detalhe junto: violação de acessibilidade sem o seletor e a regra obriga quem
   // recebe o vermelho a reproduzir localmente para descobrir o que houve.
+  //
+  // Inclui o `failureSummary` do axe, que para contraste traz as cores de frente e fundo e a
+  // razão medida contra a exigida. Sem isso o relatório diz "o botão falhou" e quem for corrigir
+  // tem de adivinhar qual cor mudar e para quanto — foi o que aconteceu na primeira execução.
   const detail = results.violations
     .map(
       (v) =>
         `\n  [${v.impact}] ${v.id}: ${v.help}\n` +
         `    ${v.helpUrl}\n` +
-        v.nodes.map((n) => `    → ${n.target.join(' ')}`).join('\n'),
+        v.nodes
+          .map(
+            (n) =>
+              `    → ${n.target.join(' ')}\n` +
+              `      ${(n.failureSummary ?? '').split('\n').join('\n      ')}`,
+          )
+          .join('\n'),
     )
     .join('');
 
   expect(results.violations, `Violações de acessibilidade em ${context}:${detail}`).toEqual([]);
 }
 
-test.describe('Acessibilidade', () => {
-  test('tela de login', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
-    await scan(page, 'login');
+/**
+ * Os DOIS temas, e não só um.
+ *
+ * O Playwright roda em tema claro por padrão; este design tem o escuro como padrão. A primeira
+ * versão desta suíte varria só o claro e passaria batido por `--text-faint` a 3,60:1 no escuro —
+ * exatamente o tema que a maioria dos usuários veria. Testar só o tema que o runner escolhe é
+ * testar o caminho que ninguém percorre.
+ */
+for (const colorScheme of ['light', 'dark'] as const) {
+  test.describe(`Acessibilidade (tema ${colorScheme === 'light' ? 'claro' : 'escuro'})`, () => {
+    test.use({ colorScheme });
+
+    test('tela de login', async ({ page }) => {
+      await page.goto('/');
+      await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
+      await scan(page, 'login');
+    });
+
+    test('tela de cadastro', async ({ page }) => {
+      await page.goto('/');
+      await page.getByRole('link', { name: /cadastr/i }).click();
+      await expect(page.getByRole('button', { name: /cadastrar/i })).toBeVisible();
+      await scan(page, 'cadastro');
+    });
+
+    test('lobby com sala listada', async ({ page }) => {
+      const room = newRoom('a11y');
+      await login(page, USERS.white);
+      await createRoom(page, room);
+      await scan(page, 'lobby');
+    });
+
+    test('tabuleiro em partida, com lance feito e destaques ativos', async ({ browser }) => {
+      // O estado mais rico da aplicação: peças rotuladas, casa selecionada, destinos destacados,
+      // último lance marcado, cartões de jogador indicando a vez. É onde mais há o que quebrar.
+      const g = await startedGame(browser, newRoom('a11y'));
+
+      await play(g.white, 'e2', 'e4');
+      await expect(g.black.getByTestId('current-turn')).toContainText('Black', { timeout: 15_000 });
+
+      await scan(g.white, 'tabuleiro (brancas, após lance)');
+
+      // Também do lado das pretas: o tabuleiro é invertido para elas, e a inversão mexe com a
+      // ordem de leitura das casas.
+      await scan(g.black, 'tabuleiro (pretas, invertido)');
+
+      await g.dispose();
+    });
+
+    test('as peças expõem cor e tipo a leitor de tela', async ({ browser }) => {
+      // Afirmação direta, além do axe: o axe garante que existe rótulo, não que ele diz a coisa
+      // certa. Um `aria-label="peça"` em tudo passaria no axe e seria inútil.
+      const g = await startedGame(browser, newRoom('a11y'));
+
+      await expect(g.white.getByRole('img', { name: 'Dama branca' })).toHaveCount(1);
+      await expect(g.white.getByRole('img', { name: 'Rei preto' })).toHaveCount(1);
+      await expect(g.white.getByRole('img', { name: 'Peão branco' })).toHaveCount(8);
+      await expect(g.white.getByRole('img', { name: 'Torre preta' })).toHaveCount(2);
+
+      await g.dispose();
+    });
   });
-
-  test('tela de cadastro', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('link', { name: /cadastr/i }).click();
-    await expect(page.getByRole('button', { name: /cadastrar/i })).toBeVisible();
-    await scan(page, 'cadastro');
-  });
-
-  test('lobby com sala listada', async ({ page }) => {
-    const room = newRoom('a11y');
-    await login(page, USERS.white);
-    await createRoom(page, room);
-    await scan(page, 'lobby');
-  });
-
-  test('tabuleiro em partida, com lance feito e destaques ativos', async ({ browser }) => {
-    // O estado mais rico da aplicação: peças rotuladas, casa selecionada, destinos destacados,
-    // último lance marcado, cartões de jogador indicando a vez. É onde mais há o que quebrar.
-    const g = await startedGame(browser, newRoom('a11y'));
-
-    await play(g.white, 'e2', 'e4');
-    await expect(g.black.getByTestId('current-turn')).toContainText('Black', { timeout: 15_000 });
-
-    await scan(g.white, 'tabuleiro (brancas, após lance)');
-
-    // Também do lado das pretas: o tabuleiro é invertido para elas, e a inversão mexe com a
-    // ordem de leitura das casas.
-    await scan(g.black, 'tabuleiro (pretas, invertido)');
-
-    await g.dispose();
-  });
-
-  test('as peças expõem cor e tipo a leitor de tela', async ({ browser }) => {
-    // Afirmação direta, além do axe: o axe garante que existe rótulo, não que ele diz a coisa
-    // certa. Um `aria-label="peça"` em tudo passaria no axe e seria inútil.
-    const g = await startedGame(browser, newRoom('a11y'));
-
-    await expect(g.white.getByRole('img', { name: 'Dama branca' })).toHaveCount(1);
-    await expect(g.white.getByRole('img', { name: 'Rei preto' })).toHaveCount(1);
-    await expect(g.white.getByRole('img', { name: 'Peão branco' })).toHaveCount(8);
-    await expect(g.white.getByRole('img', { name: 'Torre preta' })).toHaveCount(2);
-
-    await g.dispose();
-  });
-});
+}

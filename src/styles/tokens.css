@@ -21,7 +21,13 @@
   /* ---- texto ---- */
   --text: #e8eaed;
   --text-muted: #9aa2af;
-  --text-faint: #6b7280;
+  /*
+    Era #6b7280, que dá 3,60:1 sobre --surface — abaixo dos 4,5:1 da WCAG AA. Passava
+    despercebido porque o axe roda em tema claro por padrão e este é o tema escuro; só apareceu
+    ao medir os dois. Este valor dá 5,27:1 sobre --surface e 4,82:1 sobre --surface-raised,
+    mantendo a hierarquia visual em relação a --text-muted.
+  */
+  --text-faint: #868e9b;
 
   /* ---- acento: âmbar quente, para contrastar com o azul-cinza das superfícies ---- */
   --accent: #f0a53e;
@@ -95,12 +101,22 @@
 
     --text: #1a1d23;
     --text-muted: #5b6472;
-    --text-faint: #8b95a5;
+    /* Era #8b95a5: 3,02:1 sobre branco, medido pelo axe. Este dá 4,83:1. */
+    --text-faint: #6b7280;
 
-    --accent: #c97a12;
-    --accent-hover: #b06a0c;
+    /*
+      Era #c97a12, e reprovava nos DOIS usos: 3,34:1 como texto sobre branco (o estado "Jogando
+      agora") e os mesmos 3,34:1 como fundo de botão com texto branco. Não dava para resolver com
+      um token só de texto — o botão primário precisa da própria cor de fundo acessível.
+
+      Este valor dá 5,38:1 nos dois casos. É visivelmente mais fechado que o âmbar do tema
+      escuro, e é o preço de ter texto pequeno sobre fundo branco: o tema claro não comporta o
+      mesmo tom.
+    */
+    --accent: #9a5c00;
+    --accent-hover: #7d4a00;
     --accent-contrast: #ffffff;
-    --accent-soft: rgba(201, 122, 18, 0.12);
+    --accent-soft: rgba(154, 92, 0, 0.12);
 
     --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
     --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.1);

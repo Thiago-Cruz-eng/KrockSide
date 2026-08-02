@@ -16,10 +16,19 @@ import { USERS, SeedUser } from './helpers';
 
 const API_URL = process.env.E2E_API_URL ?? 'http://localhost:5001';
 
-/** Aceita o certificado de desenvolvimento quando a API sobe em https. */
-if (API_URL.startsWith('https://')) {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+/**
+ * Não desligamos validação de TLS aqui, de propósito.
+ *
+ * A primeira versão fazia `NODE_TLS_REJECT_UNAUTHORIZED = '0'` quando a URL era https, para
+ * aceitar o certificado de desenvolvimento. O CodeQL apontou, e com razão: isso desativa a
+ * verificação de certificado para o PROCESSO INTEIRO, não para esta requisição — e é exatamente
+ * o trecho que alguém copia para código de produção meses depois, porque "no teste funcionava".
+ *
+ * A suíte fala http com a API local, tanto aqui quanto no CI, então não há nada a resolver no
+ * código. Quem precisar apontar para um https com certificado autoassinado define
+ * NODE_TLS_REJECT_UNAUTHORIZED=0 no próprio shell: escolha explícita de quem executa, local
+ * àquela execução, em vez de uma decisão silenciosa embutida no repositório.
+ */
 
 async function post(path: string, body: unknown): Promise<{ ok: boolean; text: string }> {
   const response = await fetch(`${API_URL}${path}`, {

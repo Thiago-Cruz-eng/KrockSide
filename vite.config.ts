@@ -33,9 +33,10 @@ export default defineConfig({
       /**
        * Piso, não meta.
        *
-       * Os números são o que a suíte cobre hoje (61,25% linhas / 81,29% ramos / 76,56% funções),
+       * Os números são o que a suíte cobre hoje (72,62% linhas / 83,33% ramos / 79,16% funções),
        * arredondados para baixo. Não são um alvo a perseguir: são uma catraca que impede a
-       * cobertura de CAIR. Subiu? Suba o piso junto, no mesmo PR.
+       * cobertura de CAIR. Subiu? Suba o piso junto, no mesmo PR — foi o que aconteceu aqui,
+       * quando os testes de ChessLobby levaram o total de 61,25% a 72,62%.
        *
        * Deliberadamente não é um número redondo tipo 80%: limiar absoluto acima do real ou
        * bloqueia todo mundo até alguém pagar a dívida de uma vez, ou é frouxo o bastante para
@@ -45,10 +46,10 @@ export default defineConfig({
        * garante que ninguém apague testes existentes.
        */
       thresholds: {
-        lines: 61,
-        statements: 61,
-        branches: 80,
-        functions: 76,
+        lines: 72,
+        statements: 72,
+        branches: 83,
+        functions: 79,
       },
     },
   },
