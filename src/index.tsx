@@ -2,27 +2,22 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/index.css';
 import App from './components/App';
-import reportWebVitals from './utils/reportWebVitals';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { SignalRProvider } from './components/SignalRContext';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { HubProvider } from './hooks/useHubConnection';
+
+// reportWebVitals saiu junto com o create-react-app: era boilerplate que chamava
+// web-vitals 2.x sem nunca receber um handler, então nunca media nada.
 
 const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
-root.render(
-  <React.StrictMode>
-      <SignalRProvider>
-          <Router>
-              <Routes>
-                  <Route path="*" element={ <App /> }>
-                  </Route>
-              </Routes>
-          </Router>
-      </SignalRProvider>
-  </React.StrictMode>
+  document.getElementById('root') as HTMLElement,
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+root.render(
+  <React.StrictMode>
+    <HubProvider>
+      <Router>
+        <App />
+      </Router>
+    </HubProvider>
+  </React.StrictMode>,
+);
