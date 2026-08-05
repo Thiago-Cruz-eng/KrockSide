@@ -245,6 +245,27 @@ desse contorno ser conhecido — **rode antes de acreditar**.
 
   (Vite, MSW 2 e ESLint próprio **já foram adotados** em 2026-08-01, quando o CRA saiu — não estão
   mais nesta lista. Prettier continua fora, e é o que resta do DT-11.)
+- **Upgrade de dependência é decisão humana, nunca de bot.** Os *version updates* do Dependabot
+  estão desligados (`open-pull-requests-limit: 0` em [`.github/dependabot.yml`](.github/dependabot.yml)),
+  e não por descuido: em 2026-08-05 ele abriu 9 PRs de uma vez neste repositório, 8 deles major —
+  React 18→19, react-router-dom 6→7, Vite 7→8, Vitest 3→4 e quatro majors de GitHub Actions. Vite
+  8 e Vitest 4 chegaram já vermelhos.
+
+  **A stack está pinada de propósito.** React 18, react-router-dom 6, Vite 7 e Vitest 3 são a
+  stack declarada, e `npm outdated` vai apontar major para eles indefinidamente — isso é o
+  esperado, não uma pendência. Verde de CI não sustenta major de React nem de router: são 72
+  testes, 74% de cobertura e um e2e de caminho felizes, e esses majors mudam comportamento em
+  efeito, `StrictMode` e resolução de rota, que é onde a suíte não olha.
+
+  Ao subir uma versão, faça **no PR da mudança que precisa dela**: leia a nota de migração, rode a
+  suíte e atualize a stack declarada neste arquivo, no `README.md` e no `.claude/CLAUDE.md` **no
+  mesmo diff** — foi a divergência entre stack declarada e stack real que este repositório acabou
+  de pagar para consertar.
+
+  O que substitui o bot: `npm audit` informativo no `ci.yml` (não reprova o build, pelo mesmo
+  critério que o back aplica a NU1901-1904) e o workflow
+  [`dependencias`](.github/workflows/dependencias.yml), acionado à mão. Dependabot **alerts**
+  podem ficar ligados — só informam; **security updates** ficam desligados, porque abrem PR.
 
 ## Estrutura `.agents/`
 
