@@ -1,19 +1,43 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo } from 'react';
 import '../styles/ChessBoard.css';
 import '../styles/ChessSquare.css';
 import '../styles/ChessPiece.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import ChessSquare from './ChessSquare';
+import GameResult from './GameResult';
+import PlayerCard from './PlayerCard';
 import { useChessGame } from '../hooks/useChessGame';
+import { useBoardOrientation } from '../hooks/useBoardOrientation';
+import { useLastMove } from '../hooks/useLastMove';
+import { useSquareSelection } from '../hooks/useSquareSelection';
 import { getAssignedColor } from '../service/gameSession';
-import { Color, PieceDto, SquareDto, toAlgebraic } from '../types/chess';
+import { Color, SquareDto, toAlgebraic } from '../types/chess';
 
-const BOARD_SIZE = 8;
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
+/**
+ * A tela de partida: tabuleiro, painel dos jogadores e resultado.
+ *
+ * **O que este componente faz é layout e fiação.** As quatro responsabilidades que ele acumulava
+ * saíram para peças próprias, e vale saber onde cada uma está antes de mexer:
+ *
+ * | Assunto | Onde vive |
+ * |---|---|
+ * | conversar com o hub (snapshot, lances, eventos) | `useChessGame` |
+ * | escolher peça e mover, por clique ou arraste | `useSquareSelection` |
+ * | destacar as casas do último lance | `useLastMove` |
+ * | ordem de desenho conforme o lado do jogador | `useBoardOrientation` |
+ * | cartão de jogador e texto de resultado | `PlayerCard`, `GameResult` |
+ *
+ * **O servidor é a autoridade.** Nada aqui decide legalidade, turno ou cor. Em particular a cor vem
+ * de `getAssignedColor`, alimentada por `JoinRoom` — **nunca** de claim do JWT. Derivar do claim
+ * `role` fazia `playerColor` ser sempre `'None'`, `isMyTurn` sempre `false` e as 64 casas ficarem
+ * `disabled`: era a DT-01, e o tabuleiro inteiro ficava inerte.
+ */
 const ChessBoard: React.FC = () => {
   const { roomName, id } = useParams<{ roomName: string; id: string }>();
   const navigate = useNavigate();
+
   const {
     squares,
     currentTurn,
@@ -29,164 +53,37 @@ const ChessBoard: React.FC = () => {
     clearHighlights,
   } = useChessGame(roomName);
 
-  /**
-   * Casa selecionada. Espelhada num ref porque dois cliques rápidos chegam antes de o
-   * React re-renderizar: o handler do segundo clique ainda enxergava `selected` nulo,
-   * tratava o destino como nova seleção e o lance sumia sem aviso. Quem joga rápido
-   * perdia jogadas.
-   *
-   * O estado continua existindo porque é o que pinta a casa; o ref é o que decide.
-   */
-  const [selected, setSelectedState] = useState<string | null>(null);
-  const selectedRef = useRef<string | null>(null);
-  const setSelected = useCallback((value: string | null) => {
-    selectedRef.current = value;
-    setSelectedState(value);
-  }, []);
-
-  // A cor vem do servidor, atribuída em JoinRoom e guardada pelo lobby. Antes era
-  // derivada do claim `role` do JWT, que carrega o papel de autorização ("jogador"),
-  // nunca uma cor de peça: playerColor era sempre 'None' e o tabuleiro ficava inerte.
+  // A cor vem do servidor, atribuída em JoinRoom e guardada pelo lobby por sala.
   const playerColor: Color = useMemo(() => getAssignedColor(roomName), [roomName]);
 
   const isFinished = outcome !== 'InProgress';
   const isMyTurn = !isFinished && playerColor !== 'None' && playerColor === currentTurn;
 
+  const { selected, isOwnPiece, handleSelect, handleDragStartPiece, handleDropPiece } =
+    useSquareSelection({
+      playerColor,
+      highlighted,
+      requestPossibleMoves,
+      makeMove,
+      clearHighlights,
+    });
+
+  const lastMove = useLastMove(squares);
+  const { cols, rows } = useBoardOrientation(playerColor);
+
+  /** Índice por notação, para achar a casa em tempo constante durante o render. */
   const squareIndex = useMemo(() => {
     const map = new Map<string, SquareDto>();
     squares.forEach((sq) => map.set(sq.algebraic, sq));
     return map;
   }, [squares]);
 
-  // Casa do rei em xeque, para o destaque radial. O backend marca isInCheckState na peça.
+  // Casa do rei em xeque, para o destaque radial. Quem marca `isInCheckState` é o backend.
   const checkedKingSquare = useMemo(
     () =>
-      squares.find((sq) => sq.piece?.type === 'King' && sq.piece.isInCheckState)?.algebraic ??
-      null,
+      squares.find((sq) => sq.piece?.type === 'King' && sq.piece.isInCheckState)?.algebraic ?? null,
     [squares],
   );
-
-  /**
-   * Casas do último lance aplicado.
-   *
-   * Derivado comparando o snapshot novo com o anterior: as duas casas que mudaram de
-   * ocupante são a origem e o destino. Evita depender do payload de BoardChanged, que
-   * não chega para quem entra no meio da partida.
-   */
-  const previous = useRef<Map<string, string> | null>(null);
-  const [lastMove, setLastMove] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const current = new Map(
-      squares.map((sq) => [sq.algebraic, sq.piece ? `${sq.piece.color}${sq.piece.type}` : '']),
-    );
-    const before = previous.current;
-    previous.current = current;
-    if (!before || before.size === 0) return;
-
-    const changed = [...current.entries()]
-      .filter(([sq, val]) => before.get(sq) !== val)
-      .map(([sq]) => sq);
-
-    // Um lance normal muda exatamente duas casas. Mais que isso é recarga de snapshot.
-    if (changed.length === 2) setLastMove(new Set(changed));
-  }, [squares]);
-
-  const isOwnPiece = useCallback(
-    (piece: PieceDto | null) =>
-      piece !== null && piece.type !== 'None' && piece.color === playerColor,
-    [playerColor],
-  );
-
-  const handleSelect = useCallback(
-    async (algebraic: string, piece: PieceDto | null) => {
-      const current = selectedRef.current;
-
-      if (current && current !== algebraic) {
-        // Clicar em OUTRA peça sua troca a seleção. Antes limpava tudo e obrigava um
-        // segundo clique para escolher outra peça — atrito que nenhuma interface de xadrez
-        // tem. Nunca é um lance: não se captura peça da própria cor.
-        if (isOwnPiece(piece)) {
-          setSelected(algebraic);
-          await requestPossibleMoves(algebraic);
-          return;
-        }
-
-        // Segundo clique num destino: tenta o lance, desde que esteja entre os que o
-        // servidor devolveu como legais.
-        if (highlighted.size > 0 && !highlighted.has(algebraic)) {
-          setSelected(null);
-          clearHighlights();
-          return;
-        }
-        const result = await makeMove(current, algebraic);
-        setSelected(null);
-        if (!result.success) clearHighlights();
-        return;
-      }
-
-      if (!isOwnPiece(piece)) {
-        setSelected(null);
-        clearHighlights();
-        return;
-      }
-
-      setSelected(algebraic);
-      await requestPossibleMoves(algebraic);
-    },
-    [highlighted, makeMove, isOwnPiece, requestPossibleMoves, clearHighlights, setSelected],
-  );
-
-  // Busca os destinos legais assim que o arrasto começa, para que a soltura já tenha
-  // com o que se comparar.
-  const handleDragStartPiece = useCallback(
-    (algebraic: string) => {
-      setSelected(algebraic);
-      void requestPossibleMoves(algebraic);
-    },
-    [requestPossibleMoves, setSelected],
-  );
-
-  const handleDropPiece = useCallback(
-    async (from: string, to: string) => {
-      // O servidor continua sendo a autoridade — isto só impede a UI de propor um lance
-      // que ela já sabe ser ilegal. Se os destaques ainda não chegaram, deixa passar.
-      if (highlighted.size > 0 && !highlighted.has(to)) {
-        setSelected(null);
-        clearHighlights();
-        return;
-      }
-      await makeMove(from, to);
-      setSelected(null);
-    },
-    [makeMove, highlighted, clearHighlights, setSelected],
-  );
-
-  /**
-   * Ordem de desenho das casas.
-   *
-   * As colunas internas vão de 0 (fileira 8) a 7 (fileira 1), e as linhas de 0 (arquivo a)
-   * a 7 (arquivo h) — ou seja, a ordem natural já mostra o tabuleiro do ponto de vista das
-   * brancas. Para as pretas invertemos as duas, que era a DT-09: o tabuleiro ficava de
-   * cabeça para baixo para quem jogava de preto.
-   */
-  const flipped = playerColor === 'Black';
-  const cols = useMemo(() => {
-    const range = Array.from({ length: BOARD_SIZE }, (_, i) => i);
-    return flipped ? [...range].reverse() : range;
-  }, [flipped]);
-  const rows = useMemo(() => {
-    const range = Array.from({ length: BOARD_SIZE }, (_, i) => i);
-    return flipped ? [...range].reverse() : range;
-  }, [flipped]);
-
-  const resultText = useMemo(() => {
-    if (outcome === 'Stalemate') return 'Empate por afogamento';
-    if (outcome !== 'Checkmate') return null;
-    if (winner === playerColor) return 'Xeque-mate — você ganhou!';
-    if (winner) return `Xeque-mate — ${winner === 'White' ? 'as brancas' : 'as pretas'} ganharam`;
-    return 'Xeque-mate';
-  }, [outcome, winner, playerColor]);
 
   if (loading) {
     return (
@@ -212,30 +109,6 @@ const ChessBoard: React.FC = () => {
 
   const opponentColor: Color = playerColor === 'White' ? 'Black' : 'White';
 
-  const playerCard = (color: Color, isYou: boolean) => {
-    const active = !isFinished && currentTurn === color;
-    return (
-      <div className={`player-card${active ? ' player-card--active' : ''}`}>
-        <span
-          className={`player-card__avatar player-card__avatar--${
-            color === 'White' ? 'white' : 'black'
-          }`}
-          aria-hidden="true"
-        >
-          {color === 'White' ? '♔' : '♚'}
-        </span>
-        <span className="player-card__info">
-          <span className="player-card__name">
-            {isYou ? 'Você' : 'Adversário'} · {color === 'White' ? 'Brancas' : 'Pretas'}
-          </span>
-          <span className={`player-card__state${active ? ' player-card__state--turn' : ''}`}>
-            {isFinished ? 'Partida encerrada' : active ? 'Jogando agora' : 'Aguardando'}
-          </span>
-        </span>
-      </div>
-    );
-  };
-
   return (
     <div className="game">
       <header className="game__header">
@@ -257,6 +130,7 @@ const ChessBoard: React.FC = () => {
         </div>
       </header>
 
+      {/* Mensagem do último lance recusado. Vem do servidor — não é texto inventado aqui. */}
       {lastMoveError && (
         <div className="alert" role="alert">
           {lastMoveError}
@@ -269,18 +143,11 @@ const ChessBoard: React.FC = () => {
             {cols.map((col) =>
               rows.map((row) => {
                 const algebraic = toAlgebraic(row, col);
-                const square: SquareDto =
-                  squareIndex.get(algebraic) ?? {
-                    algebraic,
-                    file: algebraic[0],
-                    rank: parseInt(algebraic.slice(1), 10),
-                    row,
-                    column: col,
-                    squareColor: (row + col) % 2 === 0 ? 'White' : 'Black',
-                    piece: null,
-                  };
+                const square = squareIndex.get(algebraic) ?? emptySquare(algebraic, row, col);
 
-                // Coordenadas só na borda visível: fileira à esquerda, arquivo embaixo.
+                // Coordenadas só na borda visível: fileira à esquerda, arquivo embaixo. Como
+                // `rows`/`cols` já vêm na ordem de desenho, comparar com a primeira e a última
+                // posição funciona nas duas orientações.
                 const isFirstColumn = row === rows[0];
                 const isLastRow = col === cols[cols.length - 1];
 
@@ -307,8 +174,18 @@ const ChessBoard: React.FC = () => {
         </div>
 
         <aside className="panel">
-          {playerCard(opponentColor, false)}
-          {playerCard(playerColor, true)}
+          <PlayerCard
+            color={opponentColor}
+            isYou={false}
+            isActive={currentTurn === opponentColor}
+            isFinished={isFinished}
+          />
+          <PlayerCard
+            color={playerColor}
+            isYou
+            isActive={currentTurn === playerColor}
+            isFinished={isFinished}
+          />
 
           {waitingForOpponent && (
             <div className="waiting" data-testid="waiting-opponent">
@@ -317,20 +194,31 @@ const ChessBoard: React.FC = () => {
             </div>
           )}
 
-          {resultText && (
-            <div className="result" data-testid="game-result" role="status">
-              <span className="result__title">{resultText}</span>
-              <span className="result__detail">
-                {outcome === 'Stalemate'
-                  ? 'Sem lance legal e sem xeque.'
-                  : 'Nenhum lance é aceito a partir daqui.'}
-              </span>
-            </div>
-          )}
+          <GameResult outcome={outcome} winner={winner} playerColor={playerColor} />
         </aside>
       </div>
     </div>
   );
 };
+
+/**
+ * Casa vazia sintética, para quando o snapshot não traz aquela notação.
+ *
+ * **Isto mascara um erro de contrato, e é débito registrado (DT-13).** O backend sempre envia as 64
+ * casas; faltar alguma significa snapshot incompleto, e o certo seria reportar em vez de desenhar um
+ * tabuleiro plausível e vazio. Está mantido porque removê-lo troca "tabuleiro estranho" por "tela de
+ * erro" sem que ninguém tenha decidido isso.
+ */
+function emptySquare(algebraic: string, row: number, column: number): SquareDto {
+  return {
+    algebraic,
+    file: algebraic[0],
+    rank: parseInt(algebraic.slice(1), 10),
+    row,
+    column,
+    squareColor: (row + column) % 2 === 0 ? 'White' : 'Black',
+    piece: null,
+  };
+}
 
 export default ChessBoard;

@@ -7,6 +7,12 @@ import { PlayerInRoom } from '../types/chess';
 /**
  * Apresentação do lobby. Toda a orquestração — hub SignalR, chamadas REST, sequência de
  * validação de sessão, atribuição de cor — vive em useChessLobby.
+ *
+ * O que sobra aqui é estado **de tela**: o nome sendo digitado e qual sala está no meio de uma
+ * entrada. Nada disso interessa a quem está fora do componente.
+ *
+ * A navegação também é daqui: `joinRoom` devolve a rota e este componente a usa. É a razão de o hook
+ * não conhecer o router.
  */
 const ChessLobby: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,15 +29,29 @@ const ChessLobby: React.FC = () => {
   } = useChessLobby(id);
 
   const [newRoomName, setNewRoomName] = useState('');
+
+  /**
+   * Sala cuja entrada está em andamento, ou `null`.
+   *
+   * Guarda o **nome** da sala, e não um booleano, porque há um botão por sala: só o botão da sala
+   * clicada deve virar "Entrando…" e ficar desabilitado. Um booleano travaria todos de uma vez.
+   */
   const [busyRoom, setBusyRoom] = useState<string | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoomName.trim()) return;
     await createRoom(newRoomName);
+    // Limpa o campo só depois de criar, para que o texto não desapareça se a criação falhar.
     setNewRoomName('');
   };
 
+  /**
+   * Entra na sala e navega, se der.
+   *
+   * O `finally` garante que o botão volte ao normal mesmo quando `joinRoom` recusa — inclusive nos
+   * caminhos silenciosos do DT-10, em que nada mais acontece na tela.
+   */
   const handleJoin = async (room: string) => {
     setBusyRoom(room);
     try {
@@ -156,20 +176,18 @@ const ChessLobby: React.FC = () => {
                   )}
                 </div>
 
+                {/* O rótulo diz POR QUE o botão está desabilitado, em vez de só ficar cinza. */}
                 <button
                   className="btn btn--primary btn--block"
                   onClick={() => handleJoin(name)}
                   disabled={full || !preferredColor || !connected || busyRoom === name}
                 >
-                  {busyRoom === name
-                    ? 'Entrando…'
-                    : full
-                      ? 'Sala cheia'
-                      : !connected
-                        ? 'Conectando…'
-                        : !preferredColor
-                          ? 'Escolha uma cor'
-                          : 'Entrar na sala'}
+                  {joinButtonLabel({
+                    busy: busyRoom === name,
+                    full,
+                    connected,
+                    hasColor: Boolean(preferredColor),
+                  })}
                 </button>
               </li>
             );
@@ -179,5 +197,38 @@ const ChessLobby: React.FC = () => {
     </div>
   );
 };
+
+interface JoinButtonState {
+  /** Entrada nesta sala em andamento. */
+  busy: boolean;
+  /** A sala já tem dois jogadores. */
+  full: boolean;
+  /** Conexão com o hub pronta. */
+  connected: boolean;
+  /** O jogador já escolheu uma cor. */
+  hasColor: boolean;
+}
+
+/**
+ * O texto do botão "Entrar na sala", conforme o que está impedindo a entrada.
+ *
+ * Era uma cadeia de cinco ternários aninhados dentro do JSX. Como função nomeada, cada condição fica
+ * numa linha legível e o motivo de a ordem ser essa pode ser escrito:
+ *
+ * **A ordem é da causa mais imediata para a mais geral.** `busy` primeiro porque é o estado que o
+ * próprio clique acabou de criar; `full` antes de `connected` porque sala cheia não muda por
+ * reconectar; e "escolha uma cor" por último porque é a única que depende de uma ação do jogador em
+ * outro canto da tela — mostrá-la enquanto a conexão ainda não subiu mandaria o jogador consertar a
+ * coisa errada.
+ *
+ * Mantém os mesmos textos de antes: a suíte do lobby procura por eles.
+ */
+function joinButtonLabel({ busy, full, connected, hasColor }: JoinButtonState): string {
+  if (busy) return 'Entrando…';
+  if (full) return 'Sala cheia';
+  if (!connected) return 'Conectando…';
+  if (!hasColor) return 'Escolha uma cor';
+  return 'Entrar na sala';
+}
 
 export default ChessLobby;

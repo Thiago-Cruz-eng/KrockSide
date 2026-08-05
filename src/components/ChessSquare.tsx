@@ -66,18 +66,14 @@ const ChessSquare: React.FC<ChessSquareProps> = ({
     onSelect(algebraic, piece);
   };
 
-  // `light`/`dark` são mantidos porque a suíte verifica a cor da casa por eles.
-  const classes = [
-    'square',
-    squareColor === 'White' ? 'light' : 'dark',
-    highlighted && 'highlighted',
-    selected && 'square--selected',
-    lastMove && 'square--lastmove',
-    inCheck && 'square--check',
-    canDrag && 'square--can-drag',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const classes = squareClassName({
+    squareColor,
+    highlighted,
+    selected,
+    lastMove,
+    inCheck,
+    canDrag,
+  });
 
   return (
     <div
@@ -107,5 +103,45 @@ const ChessSquare: React.FC<ChessSquareProps> = ({
     </div>
   );
 };
+
+/** Os seis estados visuais que uma casa pode acumular ao mesmo tempo. */
+type SquareVisualState = Pick<
+  ChessSquareProps,
+  'highlighted' | 'selected' | 'lastMove' | 'inCheck' | 'canDrag'
+> & { squareColor: SquareDto['squareColor'] };
+
+/**
+ * Monta a lista de classes CSS da casa.
+ *
+ * Extraída do componente porque as seis condições somadas levavam a complexidade dele a 13, acima do
+ * limite do `eslint.config.js`. Como função nomeada, a decisão visual fica separada do render — e o
+ * limite volta a ser o que ele deveria medir.
+ *
+ * `.filter(Boolean)` remove os `false` que os `&&` produzem quando o estado não se aplica; sem ele a
+ * string sairia com `"false"` no meio.
+ *
+ * **`light`/`dark` são contrato de teste**: a suíte verifica a cor da casa por essas classes. Não
+ * renomeie sem ajustar `ChessSquare.test.tsx`.
+ */
+function squareClassName({
+  squareColor,
+  highlighted,
+  selected,
+  lastMove,
+  inCheck,
+  canDrag,
+}: SquareVisualState): string {
+  return [
+    'square',
+    squareColor === 'White' ? 'light' : 'dark',
+    highlighted && 'highlighted',
+    selected && 'square--selected',
+    lastMove && 'square--lastmove',
+    inCheck && 'square--check',
+    canDrag && 'square--can-drag',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
 
 export default ChessSquare;
