@@ -36,7 +36,7 @@ jobs:
     steps:
       # Histórico completo: o diff-cover precisa comparar com a base do PR, e um checkout raso
       # não tem o ancestral comum.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -109,7 +109,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: frontend
 
@@ -156,7 +156,7 @@ jobs:
 
       # Ambos os repos são públicos, por isso o token padrão do job basta — se algum deles
       # virar privado, este passo passa a exigir um PAT com leitura no backend.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/Hibrygame
           ref: ${{ steps.backend-ref.outputs.ref }}
