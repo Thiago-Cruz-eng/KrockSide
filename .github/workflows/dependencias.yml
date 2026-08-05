@@ -1,0 +1,64 @@
+name: dependencias
+
+# Relatório de dependência, acionado À MÃO.
+#
+# Existe porque a política deste repositório é que upgrade de biblioteca é decisão humana
+# (ver .github/dependabot.yml): nenhum bot abre PR de bump. Mas desligar o bot sem colocar nada no
+# lugar troca ruído por cegueira, que é pior — então isto é o canal de informação.
+#
+# Ele NÃO abre PR, NÃO commita e NÃO reprova nada. Só olha e conta, no resumo do job.
+#
+# `workflow_dispatch` puro, sem `schedule`: agendar transformaria isto em outro bot avisando
+# sozinho, e a ideia é que a consulta parta de uma pessoa quando ela for mexer nisso.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # `|| true`: `npm audit` sai com código diferente de zero quando encontra algo, e aqui a
+      # intenção é relatar, não reprovar.
+      - name: Advisory conhecida
+        run: |
+          {
+            echo "## Advisory conhecida"
+            echo
+            echo '```'
+            npm audit 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Informativo. NÃO é uma lista de coisas a fazer: a política é subir dependência quando há
+      # motivo, no PR da mudança, com a nota de migração lida — e não porque saiu versão nova.
+      #
+      # Vale reforçar num projeto React: `npm outdated` vai mostrar major de React, de router e de
+      # Vite eternamente, porque a stack está deliberadamente pinada. Isso é o esperado.
+      - name: Pacotes desatualizados
+        run: |
+          {
+            echo "## Pacotes desatualizados"
+            echo
+            echo "Lista informativa. Subir versão é decisão humana, feita no PR da mudança, com a"
+            echo "nota de migração lida e a stack declarada em AGENTS.md, README.md e"
+            echo ".claude/CLAUDE.md atualizada no mesmo diff. Estar desatualizado não é, por si,"
+            echo "motivo para subir."
+            echo
+            echo '```'
+            npm outdated 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

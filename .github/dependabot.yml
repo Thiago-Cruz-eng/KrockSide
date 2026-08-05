@@ -1,46 +1,72 @@
 version: 2
 
-# Atualização automática de dependências. Ver o gêmeo em Hibrygame/.github/dependabot.yml.
+# POLÍTICA: upgrade de dependência é decisão humana. Nenhum bot abre PR de bump neste
+# repositório. Ver o gêmeo em `../Hibrygame/.github/dependabot.yml`, que tem o registro completo.
 #
-# No front o argumento é ainda mais forte: a árvore de dependências de um projeto React/Vite tem
-# ordens de magnitude mais pacotes transitivos que a de uma solução .NET, e é onde vive a maior
-# parte do risco que ninguém revisa.
+# `open-pull-requests-limit: 0` é a forma documentada de desligar os *version updates*. O arquivo
+# não foi apagado de propósito: sem ele, a próxima pessoa reativa o Dependabot sem saber que já se
+# decidiu o contrário.
+#
+# ---------------------------------------------------------------------------------------------
+# POR QUE
+#
+# A configuração original alcançou a `main` no merge de 2026-08-05 e o Dependabot abriu **9 PRs de
+# uma vez** neste repositório, sendo **8 major**: React 18→19, react-router-dom 6→7, Vite 7→8,
+# Vitest 3→4 e quatro majors de GitHub Actions. Vite 8 e Vitest 4 chegaram já vermelhos.
+#
+# Os outros chegaram verdes, e é aí que está a armadilha: verde aqui são 72 testes, 74% de
+# cobertura e um e2e de caminho felizes. Não sustenta um major de React nem de router — os dois
+# mudam comportamento em efeito, StrictMode e resolução de rota, que é justamente onde essa suíte
+# não olha.
+#
+# Há um efeito de segunda ordem: fila de PR de bump que ninguém revisa treina o time a carimbar
+# diff que não leu, e isso corrói a revisão de código em geral.
+#
+# ---------------------------------------------------------------------------------------------
+# O QUE SUBSTITUI
+#
+# Este era o repositório com MENOS visibilidade de advisory dos dois: o CI não rodava `npm audit` e
+# os alerts estavam desligados, então a árvore transitiva — que a configuração original descrevia
+# como "ordens de magnitude mais pacotes que a de uma solução .NET" — não era observada por
+# ninguém. Desligar o bot sem consertar isso seria trocar ruído por cegueira, que é pior.
+#
+#   1. `ci.yml` roda `npm audit` em todo push e PR, como passo **informativo**: anota o que
+#      encontrou no resumo do job e não reprova o build. Mesmo critério que o back já aplicava ao
+#      excluir NU1901-1904 do `TreatWarningsAsErrors` — advisory aparece quando um terceiro
+#      publica, de madrugada, sem ninguém ter mudado uma linha; travar o trabalho de todos por
+#      isso não ajuda, e pode não existir versão corrigida ainda.
+#
+#   2. `.github/workflows/dependencias.yml` é acionado **à mão** (`workflow_dispatch`) e lista
+#      vulnerável e desatualizado, sem abrir PR. É o "trigado manualmente".
+#
+#   3. Dependabot **alerts** podem ficar ligados — só informam, não abrem PR nem commitam.
+#      **Security updates** ficam desligados, porque abrem PR.
+#
+# Ao subir uma dependência, faça no PR da mudança: leia a nota de migração, rode a suíte e
+# atualize a stack declarada no `AGENTS.md`, no `README.md` e no `.claude/CLAUDE.md` no mesmo diff.
+# Foi exatamente a divergência entre stack declarada e stack real que este repositório acabou de
+# pagar para consertar.
+#
+# ---------------------------------------------------------------------------------------------
+# PARA REATIVAR
+#
+# Não basta subir o limite. Se um dia os version updates voltarem, voltem com `ignore` de
+# `version-update:semver-major`, `interval: monthly` e os grupos por família, que estão no
+# histórico deste arquivo (commit c8d3374).
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-    groups:
-      # Bumps de patch/minor de dev-dependency são ruído individualmente e seguros em bloco:
-      # se a suíte passa, passou. Major fica de fora do grupo, para ser revisado sozinho.
-      dev-minor:
-        dependency-type: development
-        update-types:
-          - minor
-          - patch
-      react:
-        patterns:
-          - 'react'
-          - 'react-dom'
-          - '@types/react*'
-      testing:
-        patterns:
-          - 'vitest'
-          - '@vitest/*'
-          - '@testing-library/*'
-          - 'msw'
-          - '@playwright/*'
-          - '@axe-core/*'
+    # Zero: nenhum PR de version update. Ver a política no topo.
+    open-pull-requests-limit: 0
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
-    labels:
-      - dependencies
-      - ci
+    # Major de action é tão disruptivo quanto major de biblioteca: quebra o CI inteiro de uma vez,
+    # e `actions/checkout@v7` não é revisável sem ler o changelog.
+    open-pull-requests-limit: 0

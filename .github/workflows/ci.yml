@@ -48,6 +48,34 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Visibilidade de advisory, e nada além disso.
+      #
+      # Este repositório era o de MENOR cobertura de segurança dos dois: nada rodava `npm audit` e
+      # os alerts do Dependabot estavam desligados, então a árvore transitiva de um projeto
+      # React/Vite — que é onde mora a maior parte do risco que ninguém revisa — não era observada
+      # por ninguém. Ao desligar os PRs automáticos de bump (ver .github/dependabot.yml), este
+      # passo é o que impede que "sem bot" vire "sem informação".
+      #
+      # INFORMATIVO DE PROPÓSITO: `|| true` para não reprovar o build. É o mesmo critério que o
+      # backend já aplicava ao excluir NU1901-1904 do TreatWarningsAsErrors — advisory aparece
+      # quando um terceiro publica, de madrugada, sem ninguém ter mudado uma linha, e pode não
+      # existir versão corrigida ainda. Travar o trabalho de todos nesse caso não protege ninguém;
+      # só ensina a ignorar o aviso.
+      #
+      # `--audit-level=high` no relatório para o ruído ficar legível; o resumo completo vai no
+      # workflow `dependencias`, acionado à mão.
+      - name: Advisory de dependência (informativo)
+        run: |
+          {
+            echo "## Advisory de dependência"
+            echo
+            echo "Informativo — não reprova o build. Ver .github/dependabot.yml para a política."
+            echo
+            echo '```'
+            npm audit --audit-level=high 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Lint
         run: npm run lint
 
