@@ -2,6 +2,11 @@
 
 React + TypeScript chess multiplayer frontend. Backend: ASP.NET Core SignalR hub + REST (Hibrygame Orchestrator).
 
+> **Novo no repositório? Comece por
+> [`docs/guia-do-desenvolvedor.md`](./docs/guia-do-desenvolvedor.md)** — receitas passo a passo
+> (componente novo, hook novo, chamada ao backend, evento de hub, mexer no tabuleiro), as armadilhas
+> conhecidas e onde não mexer sem conversar.
+
 > **Trabalhando neste repositório (pessoa ou agente):** as instruções canônicas estão em
 > [`AGENTS.md`](./AGENTS.md), a arquitetura não negociável em
 > [`.specify/memory/constitution.md`](./.specify/memory/constitution.md), o conhecimento de domínio

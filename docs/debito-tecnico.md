@@ -37,6 +37,31 @@ e caminho de saída. Item marcado `[DECISÃO]` exige definição humana antes de
 > e os resultados do smoke em
 > [`../../Hibrygame/docs/manual-testing-results.md`](../../Hibrygame/docs/manual-testing-results.md).
 
+> **Revisão 2026-08-03** (preparação do repositório para manutenção por equipe júnior). Saíram desta
+> lista — os três estavam **resolvidos no código e ainda listados aqui**:
+>
+> - **DT-09** — o tabuleiro é invertido para as pretas. `ChessBoard` deriva `flipped` de
+>   `playerColor === 'Black'` e inverte a ordem de iteração de linhas e colunas (hoje em
+>   `useBoardOrientation`). Estava desbloqueado desde que `getAssignedColor` passou a dar a cor
+>   confiável.
+> - **DT-03** — o payload de cadastro está alinhado. `RegisterRequest` é
+>   `{ name, email, password, passwordConfirmation }`, `CreateUserRequest` declara `role` e perdeu
+>   `dateBirth`/`phoneNumber`, e `GetUserResponse` declara `name`. Foi seguida a opção (b) do item
+>   original: o backend ganhou `POST /register`, que deriva papel e autor no servidor e devolve
+>   sessão pronta — então `Login.handleRegister` já navega com token em mãos.
+> - **DT-14** — `Login` não tem mais `dateBirth` nem `phoneNumber` no estado. O formulário declara
+>   exatamente os quatro campos que envia.
+>
+> Atualizado:
+>
+> - **DT-11** — o workflow de CI **existe** (`.github/workflows/ci.yml`, mais `codeql.yml`). O que
+>   falta do item é apenas o formatter.
+>
+> Estado verificado: `tsc --noEmit` limpo, `eslint --max-warnings 0` limpo, **72 testes passando em
+> 10 arquivos**. O contorno do `npm` está documentado no `AGENTS.md`: prefixar
+> `C:\Program Files\nodejs` no `PATH` da sessão resolve, e chamar as ferramentas de
+> `node_modules` direto também.
+
 ## Severidade alta — o jogo não funciona
 
 ### DT-15 — regra `react-hooks/set-state-in-effect` desligada
@@ -54,30 +79,6 @@ render foi removida.
 - **Arquivo**: `eslint.config.js`
 - **Saída**: reescrever os três com `useSyncExternalStore` (ou equivalente) e religar a regra. É
   refactor da camada de estado, não conserto pontual.
-
-### DT-03 — o payload de cadastro é incompatível com o backend
-
-`CreateUserRequest` do front envia `{ userName, email, password, passwordConfirmation, dateBirth,
-phoneNumber }`. O backend `CreateUserRequest` exige `{ Name, Email, Password,
-PasswordConfirmation, Role, CreatedBy, Assignments }` — sem `dateBirth` e sem `phoneNumber`, e com
-`Role` e `CreatedBy` **obrigatórios** (`[Required]`).
-
-`CreateUserResponse` também divergem: o front espera `{ success, email, accessToken, message,
-userId }` e o backend devolve `{ Success, Message, UserId }` — **sem `accessToken`**. O
-`Login.handleRegister` navega para o lobby após cadastro, mas nenhum token foi armazenado, então o
-lobby cai em "Sessão inválida".
-
-`GetUserResponse` idem: o front espera `{ userName, email }`, o backend devolve
-`{ Id, Name, Email, Role, MustChangePassword, Assignments }` — `user.userName` é `undefined`, e
-`handleJoinRoom` tem um `if (!user.userName) return;` que aborta silenciosamente.
-
-- **Arquivos**: `src/types/auth.ts`, `src/service/userApi.ts`, `src/components/Login.tsx`,
-  `src/components/ChessLobby.tsx`
-- **Saída**: `[DECISÃO]` — alinhar em qual direção. Duas opções coerentes: (a) o front passa a
-  enviar/ler o contrato atual do backend (mais rápido, mas obriga a mandar `Role` e `CreatedBy`
-  do cliente, o que é exatamente o furo de segurança DT-04 do backend); (b) pedir ao backend um
-  endpoint de auto-registro que derive papel e autor no servidor, registrando em
-  `BACKEND_CHANGES.md`. A opção (b) é a correta; a (a) desbloqueia mais rápido.
 
 ### DT-04 — `DecodedToken` declara claims que o backend não emite
 
@@ -131,14 +132,6 @@ seria o caminho correto para reconexão.
   quando o snapshot indicar `started === false` e houver dois jogadores — ou mover `StartGame` para
   uma ação explícita do lobby.
 
-### DT-09 — o tabuleiro nunca é invertido para as pretas
-
-`ChessBoard` monta o grid com `col` de 0→7 (rank 8 no topo) e `row` de 0→7 (arquivo `a`→`h`), fixo.
-Está correto para as brancas e de cabeça para baixo para as pretas.
-
-- **Saída**: inverter a ordem de iteração quando `playerColor === 'Black'`. Desbloqueado desde
-  2026-08-01: `getAssignedColor` já dá a cor confiável que faltava para decidir.
-
 ### DT-10 — o fluxo de validação do lobby é frágil e provavelmente desnecessário
 
 `handleJoinRoom` faz, em sequência e antes de entrar na sala: `getUser`, `verifyValidation`,
@@ -157,14 +150,20 @@ Ou seja: o seletor de cor do lobby não tem efeito real na cor da partida.
 
 ## Severidade baixa
 
-### DT-11 — sem gate de CI, e sem formatter
+### DT-11 — sem formatter
 
-Parcialmente resolvido em 2026-08-01: ao sair o `react-scripts`, o lint passou a ser explícito
-(ESLint 9 flat config + typescript-eslint), e existem `npm run lint` e `npm run typecheck`. Falta:
+Quase todo resolvido. Em 2026-08-01, ao sair o `react-scripts`, o lint passou a ser explícito
+(ESLint 9 flat config + typescript-eslint) e ganhou `npm run lint` e `npm run typecheck`. O workflow
+de CI existe — `.github/workflows/ci.yml` roda `npm ci`, `tsc --noEmit`, `test:ci` e `build`, mais
+`codeql.yml` para o scan de segurança.
 
-- workflow de CI que rode `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test:ci` e
-  `npm run build` antes do merge — hoje nada garante que rodem;
-- formatter (Prettier ou o formatador do ESLint), que continua não existindo.
+O que resta: **formatter**. Não existe Prettier nem o formatador do ESLint, então indentação e
+quebra de linha continuam sendo acordo tácito. Em 2026-08-03 o `eslint.config.js` ganhou limites de
+complexidade (`complexity`, `max-lines-per-function`, `max-depth`, `max-nested-callbacks`), que
+travam o crescimento de complexidade mas não formatam nada.
+
+- **Saída**: adotar Prettier — decisão pequena, mas é adoção de dependência e por isso está aqui em
+  vez de feita de passagem.
 
 ### DT-13 — `SquareDto` de fallback é construído no componente
 
@@ -174,10 +173,16 @@ vazio. O backend sempre envia as 64 casas.
 
 - **Saída**: se o snapshot não tem 64 casas, é erro de contrato — reportar em vez de preencher.
 
-### DT-14 — `Login` mantém campos que o backend não aceita
+### DT-16 — o `ChessBoard` não trata snapshot incompleto, e o `getValidation` espera um 404 que não vem
 
-O formulário de cadastro tem `dateBirth` e `phoneNumber` no estado, mas os inputs não são
-renderizados (só e-mail, senha, confirmação e nome de usuário). `handleRegister` envia
-`dateBirth` com valor default e `phoneNumber` vazio para um backend que não conhece nenhum dos dois.
+Dois itens pequenos, os dois de "o cliente trata bem um caso que o servidor não produz":
 
-- **Saída**: resolver junto com DT-03.
+- `ChessBoard.emptySquare` monta uma casa vazia sintética quando o snapshot não traz aquela notação
+  (é o DT-13, ainda válido, agora com o código isolado numa função nomeada e comentada).
+- `userApi.getValidation` converte **404** em `null`, mas o backend não responde 404 nesse caso:
+  `GetValidationByUserToken` lança exceção quando não encontra e o controller não a trata, então o
+  que chega é **500**, que o `catch` deixa propagar. O tratamento do front está correto para quando
+  o backend for consertado; hoje é código inalcançável.
+
+- **Saída**: acompanhar a correção no backend (registrada no `docs/guia-do-desenvolvedor.md` dele) e
+  então confirmar que o caminho de `null` passa a ser exercido. Nada a fazer aqui antes disso.
