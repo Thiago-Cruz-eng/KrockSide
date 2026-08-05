@@ -2,6 +2,11 @@
 
 React + TypeScript chess multiplayer frontend. Backend: ASP.NET Core SignalR hub + REST (Hibrygame Orchestrator).
 
+> **Novo no repositório? Comece por
+> [`docs/guia-do-desenvolvedor.md`](./docs/guia-do-desenvolvedor.md)** — receitas passo a passo
+> (componente novo, hook novo, chamada ao backend, evento de hub, mexer no tabuleiro), as armadilhas
+> conhecidas e onde não mexer sem conversar.
+
 > **Trabalhando neste repositório (pessoa ou agente):** as instruções canônicas estão em
 > [`AGENTS.md`](./AGENTS.md), a arquitetura não negociável em
 > [`.specify/memory/constitution.md`](./.specify/memory/constitution.md), o conhecimento de domínio
@@ -114,11 +119,44 @@ Eventos do servidor:
 
 ### Testes
 
-- Unit: ao lado dos arquivos. Hub mockado via `createFakeHub`, REST via `axios-mock-adapter`.
-- Integration: `src/integration/`. MSW handlers em `src/mocks/handlers.ts`.
-- E2E: `tests-e2e/`. Playwright sobe dev server (`webServer`) + `page.route` mocks.
+Três camadas, cada uma pegando o que a de cima não pega:
+
+- **Unit** — ao lado dos arquivos. Hub mockado via `createFakeHub`, REST via `axios-mock-adapter`.
+- **Integração** — `src/integration/`. MSW handlers em `src/mocks/handlers.ts`.
+- **E2E** — `tests-e2e/` (28 testes). Navegador real → Vite → API .NET → MongoDB, **sem mock em
+  camada nenhuma**. O `playwright.config.ts` sobe as duas pontas e o `global-setup.ts` cadastra
+  os usuários via `POST /register`, então não há pré-requisito manual além de um MongoDB de pé.
+
+O E2E não é redundância: a versão anterior deste diretório mockava o backend com `page.route`,
+inclusive em `**/get/**` — a rota **errada** que o front chamava. O dublê espelhava o bug, o teste
+passava, e entrar em sala respondia 404 em produção. Dublê não pega erro de junção.
+
+```bash
+npx playwright install chromium   # uma vez
+npm run test:e2e
+E2E_SKIP_API_START=true npm run test:e2e   # quando a API já está no ar
+```
+
+### CI
+
+`.github/workflows/ci.yml`, dois jobs em paralelo a cada PR para `main`:
+
+| Job | O que faz | Custo |
+|---|---|---|
+| `build-and-test` | lint + `tsc --noEmit` + unit/integração + build | ~3 min |
+| `e2e` | MongoDB em service container, checkout dos dois repos, sobe API + Vite, roda os 28 testes; trace/vídeo/screenshot das falhas como artifact | ~15-20 min |
+
+O job `e2e` precisa do backend, que vive em outro repositório, e resolve qual ref usar nesta
+ordem: variável `HIBRYGAME_REF` (escape manual) → **branch de mesmo nome no Hibrygame** → `main`.
+
+Daí a convenção: **em mudança que toca as duas pontas, use o mesmo nome de branch nos dois
+repos.** Cada PR passa a ser testado contra a metade correspondente do outro lado, sem configurar
+nada. O gate espelho existe lá (`e2e.yml` no Hibrygame) — sem ele, uma mudança no hub ou num DTO
+quebraria o front sem gate nenhum.
+
+O passo a passo completo — os três formatos de demanda (back+front, só back, só front), onde cada
+teste mora e a janela entre os dois merges — está em
+[docs/fluxo-de-trabalho.md](https://github.com/Thiago-Cruz-eng/Hibrygame/blob/main/docs/fluxo-de-trabalho.md).
 
 ## Pendente
-
-- `npx playwright install chromium` antes do primeiro E2E.
 - Manter sincronizado com `BACKEND_CHANGES.md` / doc do backend (Hibrygame Orchestrator).

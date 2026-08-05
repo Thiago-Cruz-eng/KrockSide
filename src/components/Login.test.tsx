@@ -35,7 +35,7 @@ describe('Login', () => {
 
   it('renders login form by default', () => {
     renderLogin();
-    expect(screen.getByRole('heading', { name: /Login/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Entrar/i })).toBeInTheDocument();
   });
 
   it('shows error when login returns success=false', async () => {

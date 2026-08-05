@@ -1,0 +1,153 @@
+/*
+ * Sistema de design do KrockSide.
+ *
+ * Tudo que é cor, espaço, raio, sombra e tipografia vive aqui. Os arquivos de componente
+ * consomem estas variáveis e não declaram valores próprios — trocar o tema é editar este
+ * arquivo, não caçar hex code espalhado por sete CSS.
+ *
+ * Tema escuro por padrão: o tabuleiro é o elemento de maior contraste da tela e ganha
+ * destaque sobre fundo escuro. `prefers-color-scheme: light` tem sobrescrita no fim.
+ */
+
+:root {
+  /* ---- superfícies, do fundo para a frente ---- */
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-raised: #1e222b;
+  --surface-hover: #262b36;
+  --border: #2a2f3a;
+  --border-strong: #3a4150;
+
+  /* ---- texto ---- */
+  --text: #e8eaed;
+  --text-muted: #9aa2af;
+  /*
+    Era #6b7280, que dá 3,60:1 sobre --surface — abaixo dos 4,5:1 da WCAG AA. Passava
+    despercebido porque o axe roda em tema claro por padrão e este é o tema escuro; só apareceu
+    ao medir os dois. Este valor dá 5,27:1 sobre --surface e 4,82:1 sobre --surface-raised,
+    mantendo a hierarquia visual em relação a --text-muted.
+  */
+  --text-faint: #868e9b;
+
+  /* ---- acento: âmbar quente, para contrastar com o azul-cinza das superfícies ---- */
+  --accent: #f0a53e;
+  --accent-hover: #f5b657;
+  --accent-contrast: #1a1205;
+  --accent-soft: rgba(240, 165, 62, 0.14);
+
+  /* ---- estado ---- */
+  --danger: #f2555a;
+  --danger-soft: rgba(242, 85, 90, 0.12);
+  --success: #43c17a;
+  --success-soft: rgba(67, 193, 122, 0.12);
+  --info-soft: rgba(120, 160, 255, 0.12);
+
+  /* ---- tabuleiro ---- */
+  --square-light: #ebecd0;
+  --square-dark: #6f9b52;
+  --square-selected: rgba(240, 196, 62, 0.55);
+  --square-lastmove: rgba(240, 196, 62, 0.32);
+  --square-check: radial-gradient(circle, rgba(242, 85, 90, 0.9) 12%, rgba(242, 85, 90, 0) 72%);
+  /* Ponto de lance legal, no estilo lichess: some menos do tabuleiro que pintar a casa. */
+  --move-dot: rgba(20, 30, 20, 0.28);
+  --move-dot-capture: rgba(20, 30, 20, 0.3);
+
+  /* ---- espaçamento, escala de 4px ---- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+
+  /* ---- raio ---- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-full: 999px;
+
+  /* ---- sombra ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
+
+  /* ---- tipografia ---- */
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2rem;
+
+  /* ---- movimento ---- */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --dur-fast: 90ms;
+  --dur: 160ms;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-hover: #eef0f4;
+    --border: #dfe3ea;
+    --border-strong: #c6ccd8;
+
+    --text: #1a1d23;
+    --text-muted: #5b6472;
+    /*
+      Terceira tentativa, e as duas primeiras erraram pelo mesmo motivo: eu calculava contra
+      --surface (branco puro), mas estes elementos não ficam sobre branco.
+
+      #8b95a5 dava 3,02:1. #6b7280 dava 4,83:1 sobre branco — e 4,43:1 sobre --bg (#f4f5f7), que
+      é onde `.game__room-label` de fato vive. Reprovou por 0,07.
+
+      Este valor foi medido contra TODOS os fundos reais: 5,52:1 sobre --surface, 5,06:1 sobre
+      --bg, 4,84:1 sobre --surface-hover. A lição: verificar a cor contra o fundo em que ela é
+      renderizada, não contra o fundo mais claro da paleta.
+    */
+    --text-faint: #626977;
+
+    /*
+      Era #c97a12, e reprovava nos DOIS usos: 3,34:1 como texto sobre branco (o estado "Jogando
+      agora") e os mesmos 3,34:1 como fundo de botão com texto branco. Não dava para resolver com
+      um token só de texto — o botão primário precisa da própria cor de fundo acessível.
+
+      #9a5c00 resolvia sobre branco (5,38:1) e ainda reprovava onde a cor realmente aparece: o
+      estado "Jogando agora" fica dentro do cartão ativo, cujo fundo é --accent-soft, e ali dava
+      4,21:1. Fundo mais escuro que branco, contraste menor — óbvio depois de medido.
+
+      Este valor foi verificado contra os quatro fundos reais: 7,36:1 sobre --surface, 6,75:1
+      sobre --bg, 6,45:1 sobre --surface-hover e 6,10:1 sobre --accent-soft. Serve também como
+      fundo de botão com --accent-contrast branco, que é o outro uso.
+
+      É bem mais fechado que o âmbar do tema escuro. Não é escolha estética: texto de 12px sobre
+      fundo claro não comporta o mesmo tom.
+    */
+    --accent: #7d4a00;
+    --accent-hover: #613900;
+    --accent-contrast: #ffffff;
+    --accent-soft: rgba(125, 74, 0, 0.12);
+
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+    --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.1);
+    --shadow-lg: 0 12px 40px rgba(16, 24, 40, 0.14);
+  }
+}
+
+/* Quem pediu menos movimento no sistema não recebe transição nem animação. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

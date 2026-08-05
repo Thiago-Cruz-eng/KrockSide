@@ -1,0 +1,46 @@
+version: 2
+
+# Atualização automática de dependências. Ver o gêmeo em Hibrygame/.github/dependabot.yml.
+#
+# No front o argumento é ainda mais forte: a árvore de dependências de um projeto React/Vite tem
+# ordens de magnitude mais pacotes transitivos que a de uma solução .NET, e é onde vive a maior
+# parte do risco que ninguém revisa.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      # Bumps de patch/minor de dev-dependency são ruído individualmente e seguros em bloco:
+      # se a suíte passa, passou. Major fica de fora do grupo, para ser revisado sozinho.
+      dev-minor:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react*'
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - '@testing-library/*'
+          - 'msw'
+          - '@playwright/*'
+          - '@axe-core/*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - ci

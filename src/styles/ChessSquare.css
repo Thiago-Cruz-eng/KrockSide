@@ -1,21 +1,145 @@
-.chess-square {
-    width: 110px;
-    height: 110px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/*
+ * Uma casa do tabuleiro.
+ *
+ * `light`/`dark` mantêm o nome antigo porque a suíte verifica a cor da casa por eles.
+ * Tamanho não é mais fixo em 110px: a casa é uma célula do grid e se ajusta ao tabuleiro.
+ */
+
+.square {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Habilita as unidades cq* usadas pela peça e pelos pontos de lance. */
+  container-type: size;
+  transition: background-color var(--dur) var(--ease);
 }
 
-/* Colors for alternating squares */
-.white {
-    background-color: #d0d0b2;
+.square.light {
+  background-color: var(--square-light);
 }
 
-.black {
-    background-color: #965656;
+.square.dark {
+  background-color: var(--square-dark);
 }
 
-.highlighted {
-    background-color: #79c036;
-    opacity: 0.5;
+/* ---- estados ---- */
+
+.square--lastmove::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--square-lastmove);
+  pointer-events: none;
+}
+
+.square--selected::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--square-selected);
+  pointer-events: none;
+}
+
+/* Rei em xeque: brilho vermelho radial, não a casa inteira pintada. */
+.square--check::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--square-check);
+  pointer-events: none;
+  animation: check-pulse 1.4s var(--ease) infinite;
+}
+
+@keyframes check-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---- pontos de destino legal ---- */
+
+/*
+ * Disco central para casa vazia, anel para captura — a convenção do lichess. Pintar a
+ * casa inteira de verde, como era antes, escondia a peça que estava nela.
+ */
+.square__hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30cqmin;
+  height: 30cqmin;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--move-dot);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.square__hint--capture {
+  width: 88cqmin;
+  height: 88cqmin;
+  background: transparent;
+  border: 6cqmin solid var(--move-dot-capture);
+}
+
+.square:hover .square__hint {
+  background: var(--move-dot);
+  filter: brightness(1.2);
+}
+
+/* ---- coordenadas ---- */
+
+.square__rank,
+.square__file {
+  position: absolute;
+  font-size: 15cqmin;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.square__rank {
+  top: 5cqmin;
+  left: 5cqmin;
+}
+
+.square__file {
+  bottom: 4cqmin;
+  right: 5cqmin;
+}
+
+/* A coordenada usa a cor da casa OPOSTA, para ter contraste sem depender do tema. */
+.square.light .square__rank,
+.square.light .square__file {
+  color: var(--square-dark);
+}
+
+.square.dark .square__rank,
+.square.dark .square__file {
+  color: var(--square-light);
+}
+
+/* Navegador sem container queries: medidas fixas razoáveis. */
+@supports not (width: 1cqmin) {
+  .square__hint {
+    width: 30%;
+    height: 30%;
+  }
+  .square__hint--capture {
+    width: 88%;
+    height: 88%;
+    border-width: 5px;
+  }
+  .square__rank,
+  .square__file {
+    font-size: 0.625rem;
+  }
 }

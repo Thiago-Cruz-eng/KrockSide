@@ -52,7 +52,7 @@ describe('ChessBoard', () => {
       </HubTestProvider>,
     );
 
-    expect(screen.getByText(/Loading/i)).toBeInTheDocument();
+    expect(screen.getByText(/Carregando/i)).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getAllByTestId(/^square-/)).toHaveLength(64);
     });

@@ -12,66 +12,77 @@ SignalR hub `/chesshub` + REST).
 > - [.specify/memory/constitution.md](../.specify/memory/constitution.md) — 7 principles (I and II are non-negotiable)
 > - [.agents/skills/](../.agents/skills/) — domain truth, loaded on demand; **precedes patterns inferred from code**
 > - [.agents/maps/functional-map.md](../.agents/maps/functional-map.md) — the 4 contexts
+> - [docs/guia-do-desenvolvedor.md](../docs/guia-do-desenvolvedor.md) — **start here if you are new**: task recipes, repo pitfalls, where not to touch
 > - [docs/debito-tecnico.md](../docs/debito-tecnico.md) — **read always**: this front-end has confirmed divergences against the running backend
 > - [README.md](../README.md) — setup, scripts, hub contracts
 > - [BACKEND_CHANGES.md](../BACKEND_CHANGES.md) — what the backend must change (partly outdated, see DT-05)
 
-## Current state — read before assuming anything works
+## Current state (verified 2026-08-03)
 
-The board renders and the lobby loads, but **playing is blocked**: `ChessBoard` derives the player
-colour from the JWT `role` claim (which carries the permission role, and not even under that key),
-so `playerColor` is always `'None'`, `isMyTurn` is always `false`, and all 64 squares are
-`disabled`. See DT-01.
+The game **works end to end**: login, lobby, joining a room, moving, checkmate. Player colour comes
+from `JoinRoom` and is stored in `src/service/gameSession.ts`; the board is flipped for Black. Those
+were DT-01 and DT-09 and both are **resolved**.
 
-Also confirmed broken against the real backend: sign-up, token refresh and joining a room — three
-REST routes in `userApi` do not exist server-side (DT-02, DT-03). The suite is green because the
-MSW and Playwright mocks mirror the wrong routes. **Fix route and mock in the same commit.**
+Still divergent from the backend, neither blocking play: the sign-up payload (DT-03) and the claims
+declared in `DecodedToken` (DT-04). `docs/debito-tecnico.md` is the live list — trust it over any
+summary, including this one.
 
 ## Stack
 
-- **Framework:** React 18 + TypeScript 4.9, Create React App (`react-scripts` 5) — no Vite, no Next
+- **Framework:** React 18 + TypeScript 5.9
+- **Build:** **Vite 7** (`vite.config.ts`), port pinned to 3000 — CRA/`react-scripts` was removed
+  in 2026-08-01
 - **Real-time:** `@microsoft/signalr` 8 behind `HubProvider` / `useHubConnection`
 - **HTTP:** `axios` 1.6 with an `Authorization` interceptor in `src/service/Api.ts`
 - **Routing:** `react-router-dom` 6
 - **State:** `useState` + `useContext` — no Redux, no React Query
-- **Styling:** plain CSS per component in `src/styles/`
-- **Tests:** Jest + RTL + `axios-mock-adapter`, MSW **v1**, Playwright
-- **Lint:** CRA built-in only — no own ESLint, no Prettier
+- **Styling:** plain CSS per component in `src/styles/`, plus `tokens.css`
+- **Tests:** **Vitest 3** + RTL + `axios-mock-adapter`, **MSW 2** (`http`/`HttpResponse`), Playwright
+- **Lint:** own **ESLint 9** flat config (`eslint.config.js`) with `typescript-eslint` +
+  `eslint-plugin-react-hooks`; `npm run lint` uses `--max-warnings 0`. Still no formatter (DT-11)
 
 ## Run
 
 ```bash
 cp .env.example .env
 npm install
-npm start                          # http://localhost:3000
-npm test                           # Jest watch
-npm run test:ci                    # single run + coverage
-npm run build                      # fails on TypeScript errors — the real type gate
-npx tsc --noEmit                   # type check alone
+npm run dev                        # http://localhost:3000 (`npm start` is an alias)
+npm test                           # Vitest SINGLE RUN (not watch — the opposite of CRA)
+npm run test:watch                 # Vitest watch
+npm run test:ci                    # single run + coverage + floors
+npm run lint                       # ESLint, --max-warnings 0
+npm run typecheck                  # tsc --noEmit
+npm run build                      # tsc --noEmit && vite build
 npx playwright install chromium    # once
 npm run test:e2e                   # Playwright (boots the dev server itself)
 ```
 
-`REACT_APP_API_BASE_URL` (default `https://localhost:5001/`) and `REACT_APP_HUB_URL` (default
-`https://localhost:5001/chesshub`). CRA reads `REACT_APP_*` at **build time** — restart the dev
-server after editing `.env`. Accept the backend's dev certificate in the browser first, or the hub
-handshake fails without a clear message.
+`VITE_API_BASE_URL` (default `https://localhost:5001/`) and `VITE_HUB_URL` (default
+`https://localhost:5001/chesshub`), read via `import.meta.env`. **The prefix is `VITE_`** — Vite only
+exposes those; the old `REACT_APP_*` names have no effect. Restart the dev server after editing
+`.env`. Accept the backend's dev certificate in the browser first, or the hub handshake fails without
+a clear message.
 
 ## Layout
 
 ```
 src/
-  components/   App, Login, ChessLobby, ChessBoard, ChessSquare (+ *.test.tsx alongside)
-  hooks/        useAuth, useHubConnection (context + provider), useChessGame
-  service/      Api.ts (axios + token storage), userApi.ts (REST calls)
+  components/   App, Login, ChessLobby, ChessBoard, ChessSquare, ChessPiece (+ *.test.tsx alongside)
+  hooks/        useAuth, useHubConnection (context + provider), useChessGame, useChessLobby
+  service/      Api.ts (axios + token storage), userApi.ts (REST), gameSession.ts (colour/name per room)
   types/        auth.ts, chess.ts (backend DTOs + coordinate helpers)
-  mocks/        MSW handlers/server/browser
+  mocks/        MSW 2 handlers/server/browser
   test-utils/   hub.tsx — createFakeHub + HubTestProvider
   integration/  MSW-backed flow tests
-  styles/       one CSS file per component
+  styles/       one CSS file per component + tokens.css
+  setupTests.ts Vitest bootstrap (jest-dom, MSW server)
+  index.tsx     entry point: HubProvider above Router
 tests-e2e/      Playwright specs
 public/         piece images ({color}-{type}.png)
+index.html      Vite entry — at the REPO ROOT, not in public/
 ```
+
+There is no `src/utils/`: CRA's `reportWebVitals` went out with `react-scripts`.
 
 Layer flow: `components → hooks → service → types`. A component never imports `axios` or
 `@microsoft/signalr`; `src/service/Api.ts` is the only owner of token storage.
@@ -110,21 +121,36 @@ Spec Kit skills: `speckit-specify`, `speckit-clarify`, `speckit-plan`, `speckit-
 `speckit-taskstoissues`, plus the git extension. Scripts are PowerShell and require a `NNN-slug`
 branch — they fail on `main` by design.
 
-## Environment caveat
+## Environment caveat — `npm` fails with EPERM, and here is the workaround
 
-On this machine Node fails with `EPERM: lstat 'C:\Users\dgs-admin\AppData'` when resolving the npm
-install directory, so `npm run test:ci`, `npx tsc --noEmit` and `npm run build` could **not** be
-run while this harness was written. No test count in any harness document is verified — run the
-commands before claiming the suite is green.
+The `npm` on `PATH` resolves through an nvm4windows symlink pointing at another user's profile and
+throws `EPERM: operation not permitted, lstat 'C:\Users\dgs-admin\AppData'`. `node` itself is fine;
+only the `npm-cli.js` resolution breaks. Two verified ways around it:
+
+```powershell
+# 1. Prefix the Program Files Node onto the session PATH (preferred)
+$env:Path = "C:\Program Files\nodejs;" + $env:Path
+npm run test:ci
+
+# 2. Call the local tools directly, no npm
+node .\node_modules\typescript\bin\tsc --noEmit
+node .\node_modules\eslint\bin\eslint.js . --max-warnings 0
+node .\node_modules\vitest\vitest.mjs run
+```
+
+The suite **has** been run: **10 files, 72 tests passing**, `tsc --noEmit` clean, `eslint
+--max-warnings 0` clean (2026-08-03). Any harness document claiming the suite could not be executed
+predates this workaround.
 
 ## CI gates
 
 `.github/workflows/ci.yml` runs `npm ci`, `npx tsc --noEmit`, `npm run test:ci` and `npm run build`
-on push and PR to `main`. It has never run — confirm it is green on the first real execution.
+on push and PR to `main`. `codeql.yml` runs the security scan.
 
 Before merge:
-- [ ] `npx tsc --noEmit` clean
-- [ ] `npm run test:ci` green
+- [ ] `npm run typecheck` clean
+- [ ] `npm run lint` clean (`--max-warnings 0`)
+- [ ] `npm run test:ci` green, coverage floors met
 - [ ] `npm run build` succeeds
 - [ ] Constitution respected — Principles I (server authority) and II (explicit contract)
 - [ ] If a backend contract changed: `BACKEND_CHANGES.md` updated

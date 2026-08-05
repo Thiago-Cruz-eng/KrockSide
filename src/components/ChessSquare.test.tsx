@@ -22,14 +22,43 @@ function renderSquare(
   const merged: React.ComponentProps<typeof ChessSquare> = {
     square: makeSquare(),
     highlighted: false,
+    selected: false,
+    lastMove: false,
+    inCheck: false,
     disabled: false,
     canDrag: false,
+    fileLabel: null,
+    rankLabel: null,
     onSelect: vi.fn(),
     onDropPiece: vi.fn(),
     onDragStartPiece: vi.fn(),
     ...props,
   };
   return { utils: render(<ChessSquare {...merged} />), props: merged };
+}
+
+/** Rerender com o mesmo default do renderSquare, sobrescrevendo só o que interessa. */
+function rerenderSquare(
+  utils: ReturnType<typeof render>,
+  props: Partial<React.ComponentProps<typeof ChessSquare>> = {},
+) {
+  utils.rerender(
+    <ChessSquare
+      square={makeSquare()}
+      highlighted={false}
+      selected={false}
+      lastMove={false}
+      inCheck={false}
+      disabled={false}
+      canDrag={false}
+      fileLabel={null}
+      rankLabel={null}
+      onSelect={vi.fn()}
+      onDropPiece={vi.fn()}
+      onDragStartPiece={vi.fn()}
+      {...props}
+    />,
+  );
 }
 
 describe('ChessSquare', () => {
@@ -41,25 +70,29 @@ describe('ChessSquare', () => {
   it('applies highlighted class only when highlighted=true', () => {
     const { utils } = renderSquare({ highlighted: true });
     expect(screen.getByTestId('square-e2').className).toContain('highlighted');
-    utils.rerender(
-      <ChessSquare
-        square={makeSquare()}
-        highlighted={false}
-        disabled={false}
-        canDrag={false}
-        onSelect={vi.fn()}
-        onDropPiece={vi.fn()}
-        onDragStartPiece={vi.fn()}
-      />,
-    );
+    rerenderSquare(utils, { highlighted: false });
     expect(screen.getByTestId('square-e2').className).not.toContain('highlighted');
   });
 
-  it('renders piece image when piece present and not None', () => {
+  // A peça deixou de ser <img src="white-pawn.png"> e passou a ser o glifo Unicode
+  // colorido por CSS, com role="img" e aria-label. Escala sem perder nitidez e dispensa
+  // 1,8 MB de PNG.
+  it('renders the piece glyph with an accessible name', () => {
     const piece: PieceDto = { type: 'Pawn', color: 'White', isInCheckState: false };
     renderSquare({ square: makeSquare({ piece }) });
-    const img = screen.getByAltText('White Pawn');
-    expect(img.getAttribute('src')).toMatch(/white-pawn\.png$/);
+
+    const rendered = screen.getByLabelText('Peão branco');
+    expect(rendered).toHaveTextContent('♟');
+    expect(rendered.className).toContain('piece--white');
+  });
+
+  it('distinguishes black pieces by class, not by a different glyph', () => {
+    const piece: PieceDto = { type: 'Queen', color: 'Black', isInCheckState: false };
+    renderSquare({ square: makeSquare({ piece }) });
+
+    const rendered = screen.getByLabelText('Dama preta');
+    expect(rendered).toHaveTextContent('♛');
+    expect(rendered.className).toContain('piece--black');
   });
 
   it('does not render image when piece type is None', () => {
@@ -90,20 +123,10 @@ describe('ChessSquare', () => {
     const piece: PieceDto = { type: 'Pawn', color: 'White', isInCheckState: false };
 
     const { utils } = renderSquare({ square: makeSquare({ piece }), canDrag: true });
-    expect(screen.getByAltText('White Pawn')).toHaveAttribute('draggable', 'true');
+    expect(screen.getByLabelText('Peão branco')).toHaveAttribute('draggable', 'true');
 
-    utils.rerender(
-      <ChessSquare
-        square={makeSquare({ piece })}
-        highlighted={false}
-        disabled={false}
-        canDrag={false}
-        onSelect={vi.fn()}
-        onDropPiece={vi.fn()}
-        onDragStartPiece={vi.fn()}
-      />,
-    );
-    expect(screen.getByAltText('White Pawn')).toHaveAttribute('draggable', 'false');
+    rerenderSquare(utils, { square: makeSquare({ piece }), canDrag: false });
+    expect(screen.getByLabelText('Peão branco')).toHaveAttribute('draggable', 'false');
   });
 
   it('does not publish a drag source when canDrag is false', () => {
@@ -112,7 +135,7 @@ describe('ChessSquare', () => {
     const piece: PieceDto = { type: 'Pawn', color: 'Black', isInCheckState: false };
     renderSquare({ square: makeSquare({ piece }), canDrag: false, onDragStartPiece });
 
-    fireEvent.dragStart(screen.getByAltText('Black Pawn'), {
+    fireEvent.dragStart(screen.getByLabelText('Peão preto'), {
       dataTransfer: { setData } as unknown as DataTransfer,
     });
 
@@ -126,7 +149,7 @@ describe('ChessSquare', () => {
     const piece: PieceDto = { type: 'Pawn', color: 'White', isInCheckState: false };
     renderSquare({ square: makeSquare({ piece }), canDrag: true, onDragStartPiece });
 
-    fireEvent.dragStart(screen.getByAltText('White Pawn'), {
+    fireEvent.dragStart(screen.getByLabelText('Peão branco'), {
       dataTransfer: { setData } as unknown as DataTransfer,
     });
 

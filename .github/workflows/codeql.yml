@@ -1,0 +1,41 @@
+name: codeql
+
+# Análise estática de segurança (SAST). Ver o gêmeo em Hibrygame/.github/workflows/codeql.yml.
+#
+# No front o alvo principal é manipulação de token e de DOM: onde o JWT é guardado, o que é
+# injetado sem escape, para onde vão os dados de sessão.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          # javascript-typescript cobre .ts e .tsx no mesmo passe. Não precisa de build:
+          # linguagem interpretada é analisada direto do fonte.
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript

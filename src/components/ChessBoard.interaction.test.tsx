@@ -202,9 +202,9 @@ describe('ChessBoard — arrastar e soltar', () => {
     setAssignedColor('r1', 'White');
     renderBoard('White');
 
-    await waitFor(() => expect(screen.getByAltText('White Pawn')).toBeInTheDocument());
-    expect(screen.getByAltText('White Pawn')).toHaveAttribute('draggable', 'true');
-    expect(screen.getByAltText('Black Pawn')).toHaveAttribute('draggable', 'false');
+    await waitFor(() => expect(screen.getByLabelText('Peão branco')).toBeInTheDocument());
+    expect(screen.getByLabelText('Peão branco')).toHaveAttribute('draggable', 'true');
+    expect(screen.getByLabelText('Peão preto')).toHaveAttribute('draggable', 'false');
   });
 
   /** Seleciona e2 e espera o destaque de a8 — o único destino que o stub devolve. */
