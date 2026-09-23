@@ -1,4 +1,4 @@
-import { api } from './Api';
+import { api, httpStatusOf } from './Api';
 import {
   CanMoveRequest,
   CreateUserRequest,
@@ -41,6 +41,19 @@ import {
  * Mock que espelha o bug não testa nada. Ao mexer em rota, **confira contra o backend real** e
  * corrija rota e mock no mesmo commit.
  */
+/**
+ * Guid no formato que o backend serializa (`8-4-4-4-12`, hexadecimal minúsculo ou maiúsculo).
+ *
+ * `getUser` interpola o id no caminho, e o id vem da URL — então sem esta checagem qualquer coisa
+ * digitada na barra de endereço ia parar em `GET /users/<qualquer coisa>`. O backend responde 404
+ * ou 400, mas não há motivo para mandar.
+ */
+const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isGuid(value: string | undefined | null): value is string {
+  return typeof value === 'string' && GUID_PATTERN.test(value);
+}
+
 export const userApi = {
   /** Auto-registro: o servidor fixa papel e autor, e devolve sessão pronta. */
   async register(data: RegisterRequest): Promise<RegisterResponse> {
@@ -60,9 +73,15 @@ export const userApi = {
    * O campo é `name`, não `userName` — o front esperou `userName` por um tempo, recebia `undefined`,
    * e um `if (!user.userName) return;` no lobby abortava a entrada na sala **em silêncio**. Faz
    * parte do DT-03.
+   *
+   * Só aceita Guid, e o valor vai codificado no caminho. O servidor responde 404 quando o id não é
+   * o do próprio usuário (a não ser para Admin), então este é sempre o id da sessão corrente.
    */
   async getUser(id: string | undefined): Promise<GetUserResponse> {
-    const res = await api.get<GetUserResponse>(`users/${id}`);
+    if (!isGuid(id)) {
+      throw new Error('Invalid user id: expected a GUID');
+    }
+    const res = await api.get<GetUserResponse>(`users/${encodeURIComponent(id)}`);
     return res.data;
   },
 
@@ -113,8 +132,7 @@ export const userApi = {
       });
       return res.data;
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } }).response?.status;
-      if (status === 404) return null;
+      if (httpStatusOf(err) === 404) return null;
       throw err;
     }
   },
@@ -130,7 +148,7 @@ export const userApi = {
     data: UpdateValidationRequest,
   ): Promise<boolean> {
     const res = await api.post<{ updated: boolean }>(
-      `validation/update/${id}`,
+      `validation/update/${encodeURIComponent(id)}`,
       data,
     );
     return res.data.updated;

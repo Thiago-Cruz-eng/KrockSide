@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import ChessLobby from './ChessLobby';
 import Login from './Login';
 import ChessBoard from './ChessBoard';
+import RequireAuth from './RequireAuth';
 
 /**
  * As três telas da aplicação e suas rotas.
@@ -11,15 +12,15 @@ import ChessBoard from './ChessBoard';
  * |---|---|---|
  * | `/` | `Login` | — |
  * | `/chess-lobby/:id` | `ChessLobby` | `id` = id do usuário |
- * | `/chess-board/:roomName/:id` | `ChessBoard` | nome da sala e id do usuário |
+ * | `/chess-board/:roomName/:id` | `ChessBoard` | nome da sala (URL-encoded) e id do usuário |
  *
  * **O `id` do usuário viaja na URL de propósito**, e é assim que `useAuth` sabe de qual conta ler o
  * token — o storage é por usuário. Não é credencial: id não autentica ninguém, e o token continua
- * indo por cabeçalho.
+ * indo por cabeçalho. Desde 2026-09-23 o `id` também não basta para abrir uma sessão: `useAuth` só
+ * o aceita se houver token guardado para ele cujo `sub` seja ele mesmo.
  *
- * **Não há rota protegida.** Abrir `/chess-lobby/{id}` sem sessão carrega a tela, e é ela que
- * descobre que não há token válido. Uma casca de rota autenticada seria o lugar natural para isso,
- * e hoje não existe.
+ * As duas rotas autenticadas ficam dentro de `RequireAuth`, que redireciona para `/` quando não há
+ * sessão para o `:id`. Antes não havia guarda nenhuma e o tabuleiro abria sem token.
  *
  * O `Router` e o `HubProvider` ficam **acima** deste componente, em `src/index.tsx`: a conexão com o
  * hub é única para toda a aplicação e não deve ser recriada a cada troca de rota.
@@ -28,8 +29,22 @@ const App: React.FC = () => (
   <div className="app">
     <Routes>
       <Route path="/" element={<Login />} />
-      <Route path="/chess-lobby/:id" element={<ChessLobby />} />
-      <Route path="/chess-board/:roomName/:id" element={<ChessBoard />} />
+      <Route
+        path="/chess-lobby/:id"
+        element={
+          <RequireAuth>
+            <ChessLobby />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/chess-board/:roomName/:id"
+        element={
+          <RequireAuth>
+            <ChessBoard />
+          </RequireAuth>
+        }
+      />
     </Routes>
   </div>
 );

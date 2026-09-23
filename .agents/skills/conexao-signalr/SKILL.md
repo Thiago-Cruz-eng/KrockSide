@@ -101,8 +101,14 @@ new HubConnectionBuilder()
 - A factory é chamada **a cada** (re)conexão, não só na primeira: token renovado é pego
   automaticamente na próxima reconexão.
 - Ela lê o **mesmo** storage do interceptor REST (`sessionStorage.currentUserId` +
-  `localStorage.accessToken{userId}`). Nunca duplique essa leitura em outro lugar — o dono é
-  `src/service/Api.ts`.
+  `sessionStorage.accessToken{userId}`), via `getCurrentToken()`. Nunca duplique essa leitura em
+  outro lugar — o dono é `src/service/Api.ts`.
+- **Refresh de token reabre a conexão.** `setStoredTokens` (chamado pelo interceptor de refresh e
+  pelo login) notifica `onSessionChange`, o provider incrementa `sessionEpoch` e o efeito derruba e
+  recria a conexão com o token novo. `useChessGame` reentra na sala (`rejoin`) ao reconectar. No
+  logout, `clearAllStoredTokens` faz o mesmo caminho e a conexão fica em `Disconnected`.
+- Em `onclose` com erro de autenticação **não** há tratamento extra: o estado vira `Disconnected`
+  e quem decide o que fazer é a sessão (interceptor/`RequireAuth`), não a camada de conexão.
 - Retornar `''` faz o handshake acontecer **sem** token e o backend rejeita com 401 no negotiate.
   Sintoma: conexão nunca sai de `Connecting`/`Disconnected` e o console mostra
   `Hub start failed:`.

@@ -7,11 +7,16 @@ import { setAssignedColor, setPlayerName } from '../service/gameSession';
 import {
   Color,
   CreateRoomResponse,
+  isValidRoomName,
   JoinRoomResponse,
   PlayerInRoom,
   PlayerJoinedEvent,
   PlayerLeftEvent,
 } from '../types/chess';
+
+/** Mensagem local para nome de sala recusado antes de ir ao servidor. */
+export const INVALID_ROOM_NAME_MESSAGE =
+  'Nome de sala inválido: use de 1 a 64 caracteres, só letras, números, espaço, "-" e "_".';
 
 export type LobbyColor = 'White' | 'Black' | '';
 
@@ -124,11 +129,28 @@ export function useChessLobby(userId: string | undefined): ChessLobbyApi {
     };
   }, [state, on, loadRooms, loadPlayersInRoom]);
 
+  /**
+   * Cria a sala.
+   *
+   * O nome é validado aqui com a MESMA regra do servidor (`ROOM_NAME_PATTERN`) para poupar a ida
+   * e volta — mas a recusa que vale é a dele: `success: false` com `message`, que é exibida como
+   * veio (nome inválido que escapou, teto de salas atingido). A lista local só ganha a sala quando
+   * o servidor confirmou.
+   */
   const createRoom = useCallback(
     async (name: string) => {
-      if (!name.trim()) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      if (!isValidRoomName(trimmed)) {
+        setErrorMessage(INVALID_ROOM_NAME_MESSAGE);
+        return;
+      }
       try {
-        const result = await invoke<CreateRoomResponse>('CreateRoom', name);
+        const result = await invoke<CreateRoomResponse>('CreateRoom', trimmed);
+        if (!result.success) {
+          setErrorMessage(result.message ?? 'Não foi possível criar a sala.');
+          return;
+        }
         if (result.alreadyExisted) setErrorMessage('Sala já existe.');
         setRooms((prev) => (prev.includes(result.room) ? prev : [...prev, result.room]));
       } catch (err) {
@@ -233,8 +255,9 @@ export function useChessLobby(userId: string | undefined): ChessLobbyApi {
         }
 
         // Devolve a rota em vez de navegar: quem conhece o router é o componente. Assim este hook
-        // continua testável sem montar um `MemoryRouter`.
-        return `/chess-board/${room}/${userId}`;
+        // continua testável sem montar um `MemoryRouter`. O nome da sala vai codificado: espaço e
+        // caracteres fora do ASCII são válidos no nome, e crus quebrariam o segmento da rota.
+        return `/chess-board/${encodeURIComponent(room)}/${encodeURIComponent(userId)}`;
       } catch (err) {
         console.error('Error joining room:', err);
         setErrorMessage('Erro ao entrar na sala.');

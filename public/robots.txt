@@ -1,3 +1,3 @@
-# https://www.robotstxt.org/robotstxt.html
+# Aplicação autenticada, sem conteúdo público a indexar.
 User-agent: *
-Disallow:
+Disallow: /

@@ -35,6 +35,9 @@ const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
  * `disabled`: era a DT-01, e o tabuleiro inteiro ficava inerte.
  */
 const ChessBoard: React.FC = () => {
+  // `roomName` chega DECODIFICADO: o `useParams` do react-router 6 já aplica `decodeURIComponent`
+  // em cada segmento. O lobby monta a rota com `encodeURIComponent(room)`, então "sala um" vai
+  // como `sala%20um` e volta aqui como "sala um". Não decodifique de novo — `%25` viraria `%`.
   const { roomName, id } = useParams<{ roomName: string; id: string }>();
   const navigate = useNavigate();
 
@@ -51,7 +54,17 @@ const ChessBoard: React.FC = () => {
     requestPossibleMoves,
     makeMove,
     clearHighlights,
+    leaveRoom,
   } = useChessGame(roomName);
+
+  /**
+   * Volta ao lobby liberando o assento na sala. Não é logout: a sessão continua; só a partida é
+   * abandonada. `LeaveRoom` avisa o adversário via `PlayerLeft`.
+   */
+  const handleLeave = async () => {
+    await leaveRoom();
+    navigate(`/chess-lobby/${encodeURIComponent(id ?? '')}`);
+  };
 
   // A cor vem do servidor, atribuída em JoinRoom e guardada pelo lobby por sala.
   const playerColor: Color = useMemo(() => getAssignedColor(roomName), [roomName]);
@@ -100,7 +113,7 @@ const ChessBoard: React.FC = () => {
         <div className="alert" role="alert">
           Erro: {error}
         </div>
-        <button className="btn" onClick={() => navigate(`/chess-lobby/${id}`)}>
+        <button className="btn" onClick={handleLeave}>
           Voltar ao lobby
         </button>
       </div>
@@ -124,7 +137,7 @@ const ChessBoard: React.FC = () => {
           <span className="visually-hidden" data-testid="player-color">
             Você: {playerColor}
           </span>
-          <button className="btn btn--ghost" onClick={() => navigate(`/chess-lobby/${id}`)}>
+          <button className="btn btn--ghost" onClick={handleLeave}>
             Sair da partida
           </button>
         </div>

@@ -1,5 +1,11 @@
 <!-- SYNC IMPACT REPORT
-Version change: none → 1.0.0 (ratificação inicial)
+Version change: 1.0.0 → 1.0.1 (PATCH, 2026-09-23): Princípio VI passa a declarar o storage de
+  token em sessionStorage (por aba) em vez de localStorage, logout total e a checagem do :id da
+  rota contra o claim sub. Clarificação do mesmo princípio (credencial fora de URL, storage por
+  usuário), não redefinição — o meio de armazenamento é detalhe de implementação, mas a divergência
+  entre constituição e código era exatamente o que o repositório acabou de pagar para consertar.
+  Templates: sem impacto (o Constitution Check do plan-template cita o princípio, não o meio).
+Version change (anterior): none → 1.0.0 (ratificação inicial)
 Origem: harness portado de verum-sales-global-backend em 2026-08-01, com princípios escritos
   para o domínio real deste repositório (front-end React de xadrez multiplayer consumindo o
   backend Hibrygame por REST + SignalR).
@@ -136,12 +142,15 @@ Gate: `npm run test:ci` verde e `npm run build` sem erro (o build do CRA falha e
   `/chesshub`.
 - Token, refresh token e senha **nunca** vão para `console.log`, mensagem de erro exibida ou
   atributo do DOM.
-- Storage é por usuário: `localStorage.accessToken{userId}` / `refreshToken{userId}` +
-  `sessionStorage.currentUserId`. Chave global (`"token"`) é proibida — ela quebra o cenário de
-  dois usuários no mesmo browser, que é exatamente o cenário de teste deste jogo.
+- Storage é por usuário **e por aba**: `sessionStorage.accessToken{userId}` /
+  `refreshToken{userId}` + `sessionStorage.currentUserId` (emenda 1.0.1: era `localStorage`, que
+  persistia além da sessão e não encerrava no logout). Chave global (`"token"`) é proibida — ela
+  quebra o cenário de dois usuários no mesmo browser, que é exatamente o cenário de teste deste
+  jogo. Sair apaga **todo** token da aba; o `:id` da rota só vira sessão se há token para ele com
+  `sub` igual ao id.
 
 **Racional**: token em URL vaza em log de servidor, histórico de browser, `Referer` e proxy. E
-duas abas com o mesmo `localStorage` global significam dois jogadores compartilhando sessão.
+duas abas com o mesmo storage global significam dois jogadores compartilhando sessão.
 
 ### VII. Acessibilidade mínima e texto de UI em português
 
@@ -197,4 +206,4 @@ permanente — em `docs/debito-tecnico.md`.
 
 Orientação operacional para agentes fica em [`AGENTS.md`](../../AGENTS.md).
 
-**Versão**: 1.0.0 | **Ratificada**: 2026-08-01 | **Última emenda**: 2026-08-01
+**Versão**: 1.0.1 | **Ratificada**: 2026-08-01 | **Última emenda**: 2026-09-23

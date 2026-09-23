@@ -23,7 +23,7 @@ metadata:
 
 | Camada | Pasta | Pode importar | **Não** pode |
 |---|---|---|---|
-| Apresentação | `src/components/` | hooks, types, styles | `axios`, `@microsoft/signalr`, `localStorage` |
+| Apresentação | `src/components/` | hooks, types, styles | `axios`, `@microsoft/signalr`, `sessionStorage`/`localStorage` de credencial |
 | Estado/efeito | `src/hooks/` | service, types | JSX de tela (só provider), `react-router` para navegar |
 | Transporte | `src/service/` | types | nada de React |
 | Contrato | `src/types/` | — | nada do projeto |

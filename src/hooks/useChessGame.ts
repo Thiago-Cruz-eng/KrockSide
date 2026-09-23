@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { HubConnectionState } from '@microsoft/signalr';
 import { useHubConnection } from './useHubConnection';
-import { getAssignedColor, getPlayerName, setAssignedColor } from '../service/gameSession';
+import {
+  clearGameSession,
+  getAssignedColor,
+  getPlayerName,
+  setAssignedColor,
+} from '../service/gameSession';
 import {
   BoardChangedEvent,
   BoardSnapshot,
@@ -33,6 +38,8 @@ export interface ChessGameApi {
   makeMove: (from: string, to: string) => Promise<MakeMoveResponse>;
   clearHighlights: () => void;
   refresh: () => Promise<void>;
+  /** Libera o assento na sala (`LeaveRoom`) e esquece cor e nome guardados para ela. */
+  leaveRoom: () => Promise<void>;
 }
 
 function applySnapshot(snapshot: BoardSnapshot | null | undefined): BoardSnapshot | null {
@@ -206,6 +213,25 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
 
   const clearHighlights = useCallback(() => setHighlighted(new Set()), []);
 
+  /**
+   * Sai da sala de forma explícita, pelo botão — não no unmount.
+   *
+   * No unmount seria errado duas vezes: o `StrictMode` desmonta e remonta em desenvolvimento, e a
+   * troca de `sessionEpoch` do hub também remonta o efeito; nos dois casos o jogador perderia o
+   * assento sem ter pedido. Falha aqui é engolida: se o hub caiu, o servidor já liberou o assento
+   * em `OnDisconnectedAsync`, e a navegação de volta ao lobby não deve depender disso.
+   */
+  const leaveRoom = useCallback(async () => {
+    if (!roomName) return;
+    try {
+      await invoke<void>('LeaveRoom', roomName);
+    } catch (err) {
+      console.error('LeaveRoom failed:', err);
+    } finally {
+      clearGameSession(roomName);
+    }
+  }, [invoke, roomName]);
+
   return {
     snapshot,
     squares: snapshot?.squares ?? [],
@@ -221,5 +247,6 @@ export function useChessGame(roomName: string | undefined): ChessGameApi {
     makeMove,
     clearHighlights,
     refresh,
+    leaveRoom,
   };
 }

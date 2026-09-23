@@ -76,6 +76,18 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # BLOQUEANTE, e só para o que vai ao navegador.
+      #
+      # O passo acima é informativo e olha a árvore inteira, inclusive devDependencies — onde
+      # advisory sem versão corrigida é rotina e não afeta ninguém além de quem roda o build.
+      # Este aqui recorta só as dependências de PRODUÇÃO (`--omit=dev`): axios, signalr, react,
+      # router. Um `high` ou `critical` aí é código vulnerável servido a todo usuário, e o
+      # critério do backend (não travar por advisory) deixa de valer — a política do repositório
+      # já prevê upgrade quando há motivo, e este é o motivo. Se não houver versão corrigida sem
+      # major, a saída é decisão humana registrada em docs/debito-tecnico.md, não silenciar o passo.
+      - name: Advisory de dependência de produção (bloqueante)
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Lint
         run: npm run lint
 

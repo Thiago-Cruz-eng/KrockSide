@@ -150,4 +150,46 @@ describe('useChessGame', () => {
     });
     expect(result.current.currentTurn).toBe('Black');
   });
+
+  it('leaveRoom invokes LeaveRoom and clears the seat kept for the room', async () => {
+    const hub = createFakeHub(HubConnectionState.Connected);
+    const calls: Array<{ method: string; args: unknown[] }> = [];
+    hub.setInvoke(async (method, ...args) => {
+      calls.push({ method, args });
+      if (method === 'StartGame') return { success: true, snapshot: sampleSnapshot };
+      if (method === 'LeaveRoom') return undefined;
+      throw new Error(`unexpected ${method}`);
+    });
+    sessionStorage.setItem('assignedColor:room-1', 'Black');
+    sessionStorage.setItem('playerName:room-1', 'Bia');
+
+    const { result } = renderHook(() => useChessGame('room-1'), { wrapper: wrapWith(hub) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.leaveRoom();
+    });
+
+    expect(calls.find((c) => c.method === 'LeaveRoom')?.args).toEqual(['room-1']);
+    expect(sessionStorage.getItem('assignedColor:room-1')).toBeNull();
+    expect(sessionStorage.getItem('playerName:room-1')).toBeNull();
+  });
+
+  it('leaveRoom swallows a hub failure but still forgets the seat', async () => {
+    const hub = createFakeHub(HubConnectionState.Connected);
+    hub.setInvoke(async (method) => {
+      if (method === 'StartGame') return { success: true, snapshot: sampleSnapshot };
+      if (method === 'LeaveRoom') throw new Error('Hub not connected');
+      throw new Error(`unexpected ${method}`);
+    });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    sessionStorage.setItem('assignedColor:room-1', 'White');
+
+    const { result } = renderHook(() => useChessGame('room-1'), { wrapper: wrapWith(hub) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await expect(result.current.leaveRoom()).resolves.toBeUndefined();
+    expect(sessionStorage.getItem('assignedColor:room-1')).toBeNull();
+    errorSpy.mockRestore();
+  });
 });

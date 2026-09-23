@@ -176,14 +176,23 @@ servidor**.
 
 Tudo que atravessa o fio é algébrico (`"e2"`). `row`/`column` existem só para o grid.
 
-### Token: nunca leia `localStorage` direto
+### Token: nunca leia o storage direto
 
-O storage é **por usuário** (`accessToken{userId}`), mais `sessionStorage.currentUserId` para o
-interceptor saber qual usar. Quem monta essas chaves é `service/Api.ts`, e **só ele**. Errar a chave
-desloga todo mundo em silêncio.
+O storage é **por usuário e por aba** (`sessionStorage.accessToken{userId}` e
+`refreshToken{userId}` — era `localStorage` até 2026-09-23), mais `sessionStorage.currentUserId`
+para o interceptor e o hub saberem qual usar. Quem monta essas chaves é `service/Api.ts`, e **só
+ele**. Errar a chave desloga todo mundo em silêncio. Consequência do `sessionStorage`: fechar a aba
+encerra a sessão; F5 preserva; duas abas são duas sessões.
 
 O `userId` viaja na URL para que `useAuth` saiba de qual conta ler. Isso não é credencial — o token
-continua indo por cabeçalho.
+continua indo por cabeçalho — e **não basta**: `useAuth` só reconhece a sessão se existe token para
+esse id cujo `sub` é ele mesmo. `RequireAuth` (em `App.tsx`) manda para `/` quando não há. Tela
+autenticada nova vai dentro de `RequireAuth`, sem checagem à mão.
+
+Sessão expirada não é mais 401 até o fim: o interceptor de resposta em `Api.ts` renova uma vez
+(single-flight) e repete a requisição; se a renovação falha, limpa tudo e volta ao login. "Sair"
+do lobby chama `logout` — apaga todo token da aba — antes de navegar. Detalhe completo na skill
+`autenticacao-e-sessao` e em `docs/seguranca.md`.
 
 ### A conexão do hub é única, e frágil de recriar
 

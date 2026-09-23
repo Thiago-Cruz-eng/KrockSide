@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import '../styles/ChessLobby.css';
 import { useChessLobby } from '../hooks/useChessLobby';
+import { useAuth } from '../hooks/useAuth';
 import { PlayerInRoom } from '../types/chess';
 
 /**
@@ -28,7 +29,22 @@ const ChessLobby: React.FC = () => {
     joinRoom,
   } = useChessLobby(id);
 
+  // Só para o `logout`: a sessão em si é lida dentro de `useChessLobby`.
+  const { logout } = useAuth(id);
+
   const [newRoomName, setNewRoomName] = useState('');
+
+  /**
+   * Sair é sair de verdade: apaga a sessão da aba antes de voltar ao login.
+   *
+   * Antes o botão só navegava para `/`, e o token continuava no storage — quem digitasse a URL do
+   * lobby de volta entrava sem senha. `logout` limpa todos os tokens e avisa o HubProvider, que
+   * derruba a conexão autenticada.
+   */
+  const handleLogout = () => {
+    if (id) logout(id);
+    navigate('/');
+  };
 
   /**
    * Sala cuja entrada está em andamento, ou `null`.
@@ -84,7 +100,7 @@ const ChessLobby: React.FC = () => {
             jogador entra.
           </p>
         </div>
-        <button className="btn btn--ghost" onClick={() => navigate('/')}>
+        <button className="btn btn--ghost" onClick={handleLogout}>
           Sair
         </button>
       </header>
