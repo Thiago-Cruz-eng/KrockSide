@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import ChessLobby from './ChessLobby';
 import { useChessLobby } from '../hooks/useChessLobby';
+import { validJwtFor } from '../test-utils/jwt';
 
 /**
  * Testes de apresentação do lobby.
@@ -59,6 +60,8 @@ function setup(overrides: Partial<LobbyState> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  sessionStorage.clear();
 });
 
 describe('ChessLobby', () => {
@@ -207,9 +210,22 @@ describe('ChessLobby', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Sala já existe.');
   });
 
-  it('sair volta para a raiz', () => {
+  it('sair encerra a sessão da aba e volta para a raiz', () => {
+    // `useAuth` é real aqui (só `useChessLobby` é dublê), então o que se verifica é o efeito
+    // observável: o storage fica vazio. Antes o botão só navegava e o token continuava lá — quem
+    // digitasse a URL do lobby de volta entrava sem senha.
+    sessionStorage.setItem('accessTokenu1', validJwtFor('u1'));
+    sessionStorage.setItem('refreshTokenu1', 'r1');
+    sessionStorage.setItem('accessTokenu2', validJwtFor('u2'));
     setup();
+    expect(sessionStorage.getItem('currentUserId')).toBe('u1');
+
     fireEvent.click(screen.getByRole('button', { name: 'Sair' }));
+
     expect(navigate).toHaveBeenCalledWith('/');
+    expect(sessionStorage.getItem('accessTokenu1')).toBeNull();
+    expect(sessionStorage.getItem('refreshTokenu1')).toBeNull();
+    expect(sessionStorage.getItem('accessTokenu2')).toBeNull();
+    expect(sessionStorage.getItem('currentUserId')).toBeNull();
   });
 });

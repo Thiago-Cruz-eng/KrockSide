@@ -104,9 +104,58 @@ test.describe('Autenticação', () => {
     await page.reload();
     await waitForHub(page);
 
-    // Ainda no lobby, com hub conectado: o token está no localStorage e o
-    // currentUserId no sessionStorage, que sobrevivem à recarga.
+    // Ainda no lobby, com hub conectado: token e currentUserId estão no sessionStorage, que
+    // sobrevive à recarga da mesma aba (e morre ao fechá-la — é o esperado desde 2026-09-23).
     await expect(page.getByRole('heading', { name: /Partidas/i })).toBeVisible();
+  });
+
+  test('sair encerra a sessão: voltar à URL do lobby leva ao login', async ({ page }) => {
+    // Regressão do hardening: "Sair" só navegava e o token ficava no storage, então digitar a
+    // URL do lobby de volta entrava sem senha.
+    await login(page, USERS.white);
+    const lobbyUrl = page.url();
+
+    await page.getByRole('button', { name: 'Sair', exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('heading', { name: /Entrar/i })).toBeVisible();
+
+    const tokens = await page.evaluate(() =>
+      Object.keys(sessionStorage).filter(
+        (k) => k.startsWith('accessToken') || k.startsWith('refreshToken'),
+      ),
+    );
+    expect(tokens).toEqual([]);
+
+    await page.goto(lobbyUrl);
+    await expect(page.getByRole('heading', { name: /Entrar/i })).toBeVisible();
+    await expect(page).not.toHaveURL(/chess-lobby/);
+  });
+
+  test('rota autenticada sem sessão redireciona para o login', async ({ page }) => {
+    // RequireAuth: antes o lobby e o tabuleiro abriam sem token e falhavam chamada a chamada.
+    await page.goto('/chess-lobby/00000000-0000-4000-8000-000000000000');
+    await expect(page.getByRole('heading', { name: /Entrar/i })).toBeVisible();
+    await expect(page).not.toHaveURL(/chess-lobby/);
+
+    await page.goto(`/chess-board/${newRoom('guard')}/00000000-0000-4000-8000-000000000000`);
+    await expect(page.getByRole('heading', { name: /Entrar/i })).toBeVisible();
+    await expect(page).not.toHaveURL(/chess-board/);
+  });
+
+  test('cadastro com senha curta é barrado antes de chamar a API', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Criar uma nova conta' }).click();
+
+    await page.getByLabel('E-mail').fill(`curta-${Date.now()}@hibrygame.local`);
+    await page.getByLabel('Senha', { exact: true }).fill('curta12');
+    await page.getByLabel('Confirmar Senha').fill('curta12');
+    await page.getByLabel('Nome de Usuário').fill('Senha Curta');
+
+    // O input tem minLength=8, então o navegador barra o submit nativo. O que se verifica é
+    // que a conta NÃO foi criada: continuar na tela de cadastro, sem ir ao lobby.
+    await page.getByRole('button', { name: 'Criar Conta' }).click();
+    await expect(page).not.toHaveURL(/chess-lobby/);
+    await expect(page.getByRole('button', { name: 'Criar Conta' })).toBeVisible();
   });
 
   test('o hub só conecta depois do login', async ({ page }) => {

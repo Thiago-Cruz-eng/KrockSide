@@ -16,6 +16,24 @@ import { API_BASE_URL } from '../service/Api';
  */
 const BASE = API_BASE_URL.replace(/\/+$/, '');
 
+/**
+ * Resposta de excesso de tentativas, igual à do backend: 429 com `Retry-After` e o mesmo corpo
+ * `{ success: false, message }` dos outros endpoints de autenticação.
+ */
+export const tooManyRequests = () =>
+  HttpResponse.json(
+    { success: false, message: 'Too many requests' },
+    { status: 429, headers: { 'Retry-After': '60' } },
+  );
+
+/** `POST /login` respondendo 429: sobreponha com `server.use(rateLimitedLogin)` no teste. */
+export const rateLimitedLogin = http.post(`${BASE}/login`, tooManyRequests);
+
+/** `POST /refresh-token` recusando o refresh token (revogado ou já rotacionado). */
+export const failedRefresh = http.post(`${BASE}/refresh-token`, () =>
+  HttpResponse.json({ success: false, message: 'Invalid refresh token' }, { status: 401 }),
+);
+
 export const handlers = [
   http.post(`${BASE}/login`, async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
@@ -39,6 +57,8 @@ export const handlers = [
     });
   }),
 
+  // Refresh bem-sucedido: par NOVO (rotação). Quem grava só o access token perde a sessão na
+  // próxima renovação, porque o refresh antigo já foi revogado.
   http.post(`${BASE}/refresh-token`, () =>
     HttpResponse.json({
       success: true,

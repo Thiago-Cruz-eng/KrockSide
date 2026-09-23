@@ -1,6 +1,7 @@
 import MockAdapter from 'axios-mock-adapter';
-import userApi from './userApi';
+import userApi, { isGuid } from './userApi';
 import { httpClient } from './Api';
+import { GUID_1 } from '../test-utils/jwt';
 
 // Antes este arquivo substituía o módulo Api inteiro com vi.mock e reconstruía a
 // instância axios via require('axios'). O require não sobrevive ao pacote virar ESM,
@@ -144,15 +145,44 @@ describe('userApi', () => {
     expect(res.accessToken).toBe('new');
   });
 
-  it('getUser GETs by id', async () => {
-    mock.onGet('users/u1').reply(200, {
-      id: 'u1',
+  it('getUser GETs by id when it is a GUID', async () => {
+    mock.onGet(`users/${GUID_1}`).reply(200, {
+      id: GUID_1,
       name: 'thiago',
       email: 'a@b.com',
       role: 'jogador',
       mustChangePassword: false,
     });
-    const res = await userApi.getUser('u1');
+    const res = await userApi.getUser(GUID_1);
     expect(res.name).toBe('thiago');
+  });
+
+  it.each(['u1', '../admin', 'guid-1?x=1', '', undefined])(
+    'getUser refuses %j without touching the network',
+    async (id) => {
+      mock.onAny().reply(200, {});
+      await expect(userApi.getUser(id)).rejects.toThrow(/GUID/);
+      expect(mock.history.get).toHaveLength(0);
+    },
+  );
+
+  it('isGuid accepts the backend format in either case and nothing else', () => {
+    expect(isGuid(GUID_1)).toBe(true);
+    expect(isGuid(GUID_1.toUpperCase())).toBe(true);
+    expect(isGuid('11111111111111111111111111111111')).toBe(false); // sem hífens
+    expect(isGuid('zzzzzzzz-1111-4111-8111-111111111111')).toBe(false);
+    expect(isGuid(null)).toBe(false);
+  });
+
+  it('updateValidation URL-encodes the id segment', async () => {
+    mock.onPost('validation/update/v%2F1').reply(200, { updated: true });
+    const ok = await userApi.updateValidation('v/1', {
+      pieceColor: 'black',
+      room: 'r1',
+      userEmail: 'e',
+      userId: 'u',
+    });
+    expect(ok).toBe(true);
+    expect(mock.history.post[0].url).toBe('validation/update/v%2F1');
   });
 });

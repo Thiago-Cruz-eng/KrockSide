@@ -104,14 +104,23 @@ no handler.
 ## `createRoom`
 
 ```ts
-const result = await invoke<CreateRoomResponse>('CreateRoom', roomName);
+const trimmed = name.trim();
+if (!isValidRoomName(trimmed)) { setErrorMessage(INVALID_ROOM_NAME_MESSAGE); return; }
+const result = await invoke<CreateRoomResponse>('CreateRoom', trimmed);
+if (!result.success) { setErrorMessage(result.message ?? '...'); return; }   // recusa do servidor
 if (result.alreadyExisted) setErrorMessage('Sala já existe.');
 setRooms(prev => prev.includes(result.room) ? prev : [...prev, result.room]);
 ```
 
-- Ignora nome vazio (`!roomName.trim()`), mas **não** normaliza (espaço no meio, caixa, acento
-  passam direto). O nome é a chave da sala no dicionário do backend: `"Sala 1"` e `"sala 1"` são
-  salas diferentes.
+- Nome validado **antes** de ir ao hub com a mesma regra do servidor, `ROOM_NAME_PATTERN =
+  /^[\p{L}\p{N} _-]{1,64}$/u` em `src/types/chess.ts` (letras e dígitos Unicode, espaço, `-`, `_`),
+  com mensagem em português. Só `trim` — caixa e acento **não** são normalizados: `"Sala 1"` e
+  `"sala 1"` são salas diferentes no dicionário do backend.
+- `CreateRoomResponse` tem `success`/`message` desde 2026-09-23: `success: false` para nome inválido
+  que escapou ou teto de salas atingido. A `message` é exibida como veio e a sala **não** entra na
+  lista local.
+- A rota do tabuleiro devolvida por `joinRoom` leva o nome com `encodeURIComponent`; o `useParams`
+  do tabuleiro já o devolve decodificado.
 - **`alreadyExisted` não significa "a sala já existia"** e sim "a sala tem jogador" — defeito
   conhecido do backend. A mensagem `"Sala já existe."` é enganosa em parte dos casos.
 - A sala é adicionada à lista local otimisticamente; não há recarga de `GetAvailableRooms`.
@@ -135,8 +144,10 @@ escolha uma.
 
 - Botão "Entrar na Sala" fica `disabled` quando a sala tem 2 jogadores **ou** nenhuma cor foi
   escolhida. Como a cor não tem efeito real, essa exigência é fricção sem função (DT-10).
-- Não há saída de sala pela UI: `LeaveRoom` existe no hub e **nenhum componente o chama**. Sair é
-  fechar a aba (o backend trata via `OnDisconnectedAsync`).
+- Saída de sala pela UI (desde 2026-09-23): "Sair da partida" e "Voltar ao lobby" no `ChessBoard`
+  chamam `useChessGame.leaveRoom()` — `LeaveRoom` no hub mais `clearGameSession(room)` — e só
+  então navegam. Não é chamado no unmount de propósito (StrictMode e troca de `sessionEpoch`
+  remontam o efeito). Fechar a aba continua sendo tratado pelo backend em `OnDisconnectedAsync`.
 - Sala vazia nunca é removida no backend: a lista cresce indefinidamente.
 - Não há paginação, busca nem limite de salas.
 - O seletor de cor não é por sala: `selectedColor` é global do componente, mas o botão de cor é

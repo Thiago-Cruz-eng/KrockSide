@@ -62,6 +62,35 @@ e caminho de saída. Item marcado `[DECISÃO]` exige definição humana antes de
 > `C:\Program Files\nodejs` no `PATH` da sessão resolve, e chamar as ferramentas de
 > `node_modules` direto também.
 
+> **Revisão 2026-09-23** (`chore/politica-dependencias-002` — hardening de segurança pré-produção,
+> a partir da auditoria OWASP do front). Nada aqui era item numerado; eram lacunas que a skill
+> `autenticacao-e-sessao` descrevia como "hoje não existe". **Saíram**:
+>
+> - **Logout inexistente** — "Sair" só navegava para `/` e o token ficava no storage; quem
+>   digitasse a URL do lobby voltava logado. Agora `useAuth.logout` chama `clearAllStoredTokens()`,
+>   que apaga todo token de todo usuário e avisa o `HubProvider`.
+> - **Refresh nunca usado** — `userApi.refresh` existia e ninguém chamava; o token expirava em 60
+>   min e o app começava a receber 401. Agora há interceptor de resposta em `createApi` (401 → um
+>   refresh single-flight → rotação dos dois tokens → repetição da requisição) e renovação
+>   proativa em `useAuth` para token expirado com refresh disponível.
+> - **Sem guarda de rota** — `/chess-board/...` abria sem token e falhava chamada a chamada. Agora
+>   `RequireAuth` envolve as duas rotas autenticadas, e `useAuth` só aceita o `:id` da rota se há
+>   token para ele com `sub` igual ao id.
+> - **Token em `localStorage`** — passou a `sessionStorage` (por aba; morre ao fechar). Duas abas
+>   são duas sessões independentes; reload preserva.
+> - **Dependências de runtime com advisory `high`/`critical`** — `axios` 1.6.7 → 1.20.0,
+>   `react-router-dom` 6.21.3 → 6.30.6, `@microsoft/signalr` 8.0.17 → 8.0.29, `ws` transitivo
+>   7.5.10 → 7.5.13. Todos dentro do semver já declarado; o motivo (advisory em código que vai ao
+>   navegador) é o que a política de upgrade exige. `npm audit --omit=dev`: de **7 (1 moderate,
+>   5 high, 1 critical)** para **2 moderate** (react-router, só em major — ver DT-18).
+>
+> **Entraram** DT-17, DT-18 e DT-19 (abaixo). Removida a chave `allowScripts` do `package.json`:
+> era do `@lavamoat/allow-scripts`, que não está instalado — não fazia nada e sugeria uma proteção
+> que não existia.
+>
+> Estado verificado: ver o relatório da mudança. Contagem de testes e cobertura estão no
+> `AGENTS.md`; o piso do `vite.config.ts` subiu junto.
+
 ## Severidade alta — o jogo não funciona
 
 ### DT-15 — regra `react-hooks/set-state-in-effect` desligada
@@ -147,6 +176,62 @@ Ou seja: o seletor de cor do lobby não tem efeito real na cor da partida.
 - **Saída**: `[DECISÃO]` — acompanhar a decisão do backend sobre o destino da coleção `Validation`.
   Enquanto isso: (1) trocar todo `return` silencioso por `setErrorMessage` explícito; (2) parar de
   prometer escolha de cor na UI, ou exibir a cor **recebida** de `JoinRoom` em vez da escolhida.
+
+### DT-17 — token acessível a JavaScript: cookie `HttpOnly` + CSRF dependem do backend
+
+Depois do hardening de 2026-09-23 o token vive em `sessionStorage`, o que encurta a janela (morre com
+a aba) mas **não** tira o token do alcance de um XSS: qualquer script na origem lê `sessionStorage`.
+A saída definitiva é o backend emitir access e refresh token em cookie `HttpOnly; Secure; SameSite`,
+com proteção CSRF (token sincronizado ou `SameSite=Strict` + header custom), e o hub deixar de
+receber o token pela query string (`?access_token=`) — o cookie iria junto no handshake.
+
+Enquanto isso não existe, o front não tem como fazer melhor sozinho: cookie sem `HttpOnly` é pior
+que `sessionStorage` (vai em toda requisição **e** é legível por JS).
+
+- **Arquivos**: `src/service/Api.ts` (storage), `src/hooks/useHubConnection.tsx`
+  (`accessTokenFactory`)
+- **Saída**: `[DECISÃO]` do backend — pedido registrado em `BACKEND_CHANGES.md` (2026-09-23), junto
+  com a redução do access token para 15 min agora que o front renova sozinho. Quando o cookie
+  existir: remover o storage de token do `Api.ts`, o interceptor de `Authorization` passa a ser
+  `withCredentials: true`, e `RequireAuth` passa a consultar um endpoint `/me` em vez de decodificar
+  o token.
+
+### DT-18 — advisories que só se resolvem com major: `react-router` e `vitest`
+
+`npm audit` aponta dois grupos sem correção dentro do semver declarado:
+
+- **`react-router` / `react-router-dom` 6.x** — duas advisories **moderate**
+  (GHSA-wrjc-x8rr-h8h6, open redirect via `\` em `<Link>`/`useNavigate`; GHSA-337j-9hxr-rhxg,
+  deserialização em SSR hydration). A correção está só em `react-router-dom@7`. É dependência de
+  **produção**, mas o CI bloqueia a partir de `high`, então não reprova. Exposição real aqui é
+  baixa: o app não faz SSR e todo `navigate` recebe rota montada internamente (com
+  `encodeURIComponent`), não entrada do usuário.
+- **`vitest` 3.x** — advisory **moderate**, corrigida só em major. Dependência de
+  **desenvolvimento**: não vai ao navegador, e o passo bloqueante do CI usa `--omit=dev`
+  exatamente para isso.
+
+Os dois são majors que a política do repositório (`AGENTS.md`, "Upgrade de dependência é decisão
+humana") mantém fora de propósito — router 7 e Vitest 4 mudam comportamento onde a suíte não olha.
+
+- **Arquivo**: `package.json`
+- **Saída**: `[DECISÃO]` — subir `react-router-dom` para 7 no PR que precisar dele (com a nota de
+  migração lida e a suíte E2E verde, porque é resolução de rota que muda); `vitest` 4 idem. Até lá,
+  reavaliar a cada rodada do workflow `dependencias` se apareceu correção em 6.x/3.x.
+
+### DT-19 — headers de segurança dependem do host, e ainda não há host
+
+A CSP do build é uma meta tag, e meta tag não emite `frame-ancestors`, HSTS, `X-Frame-Options`,
+`X-Content-Type-Options`, `Referrer-Policy` nem `Permissions-Policy`. Tudo isso precisa ser
+configurado no servidor que vai entregar o `build/` — que hoje não existe (o projeto roda só em
+dev). A lista completa, com exemplos para nginx e Azure Static Web Apps, está em
+[`docs/seguranca.md`](./seguranca.md).
+
+Também depende do host: bloquear os `.map` (gerados por `sourcemap: 'hidden'`) e trocar o
+`connect-src 'self' https: wss:` genérico da meta tag pelo host real da API.
+
+- **Arquivos**: `vite.config.ts` (meta tag), `docs/seguranca.md` (o que falta)
+- **Saída**: ao escolher o host, seguir o checklist de produção do `docs/seguranca.md` e versionar a
+  configuração dele (`nginx.conf` ou `staticwebapp.config.json`) neste repositório.
 
 ## Severidade baixa
 

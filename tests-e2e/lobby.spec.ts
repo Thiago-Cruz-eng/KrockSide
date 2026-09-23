@@ -35,6 +35,29 @@ test.describe('Lobby', () => {
     await expect(page.getByRole('alert')).toContainText(/já existe/i);
   });
 
+  test('nome de sala inválido é recusado no cliente, com mensagem em português', async ({ page }) => {
+    // Mesma regra do servidor (^[\p{L}\p{N} _-]{1,64}$), conferida antes de ir ao hub. A recusa
+    // do servidor, quando acontece, aparece com a `message` dele — este teste cobre só o cliente.
+    await login(page, USERS.white);
+
+    await page.getByLabel('Nome da nova sala').fill('sala<script>');
+    await page.getByRole('button', { name: 'Criar sala' }).click();
+
+    await expect(page.getByRole('alert')).toContainText(/Nome de sala inválido/i);
+    await expect(roomCard(page, 'sala<script>')).toHaveCount(0);
+  });
+
+  test('nome de sala com espaço e acento funciona e chega ao tabuleiro', async ({ page }) => {
+    // O nome vai codificado na rota (`encodeURIComponent`) e volta decodificado no tabuleiro.
+    const room = `Sala Ação ${Date.now()}`;
+    await login(page, USERS.white);
+    await createRoom(page, room);
+    await joinRoom(page, room, 'Brancas');
+
+    await expect(page).toHaveURL(/chess-board\/Sala%20A/);
+    await expect(page.getByText(room, { exact: true })).toBeVisible();
+  });
+
   test('entrar exige escolher cor antes', async ({ page }) => {
     const room = newRoom();
     await login(page, USERS.white);

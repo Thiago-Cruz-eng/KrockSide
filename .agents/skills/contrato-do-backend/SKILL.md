@@ -87,7 +87,7 @@ backend **apenas** para o path `/chesshub`. Requer papel ≥ `"jogador"`.
 
 | Método | Argumentos | Retorno |
 |---|---|---|
-| `CreateRoom` | `room: string` | `CreateRoomResponse { room, alreadyExisted }` |
+| `CreateRoom` | `room: string` | `CreateRoomResponse { success, message?, room, alreadyExisted }` — `success: false` para nome fora de `^[\p{L}\p{N} _-]{1,64}$` ou teto de salas (2026-09-23) |
 | `GetAvailableRooms` | — | `string[]` (salas não cheias e não finalizadas) |
 | `GetPlayersInRoom` | `room` | `number` |
 | `GetPlayersInEachRoom` | — | `Record<string, string[]>` (nomes, sem cor) |

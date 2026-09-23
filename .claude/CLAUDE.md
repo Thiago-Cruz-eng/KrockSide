@@ -32,9 +32,10 @@ summary, including this one.
 - **Framework:** React 18 + TypeScript 5.9
 - **Build:** **Vite 7** (`vite.config.ts`), port pinned to 3000 — CRA/`react-scripts` was removed
   in 2026-08-01
-- **Real-time:** `@microsoft/signalr` 8 behind `HubProvider` / `useHubConnection`
-- **HTTP:** `axios` 1.6 with an `Authorization` interceptor in `src/service/Api.ts`
-- **Routing:** `react-router-dom` 6
+- **Real-time:** `@microsoft/signalr` 8.0.29 behind `HubProvider` / `useHubConnection`
+- **HTTP:** `axios` 1.20 with an `Authorization` interceptor **and** a single-flight refresh
+  interceptor (401) in `src/service/Api.ts`; 10s timeout
+- **Routing:** `react-router-dom` 6.30, authenticated routes wrapped in `RequireAuth`
 - **State:** `useState` + `useContext` — no Redux, no React Query
 - **Styling:** plain CSS per component in `src/styles/`, plus `tokens.css`
 - **Tests:** **Vitest 3** + RTL + `axios-mock-adapter`, **MSW 2** (`http`/`HttpResponse`), Playwright
@@ -67,9 +68,9 @@ a clear message.
 
 ```
 src/
-  components/   App, Login, ChessLobby, ChessBoard, ChessSquare, ChessPiece (+ *.test.tsx alongside)
+  components/   App, RequireAuth, Login, ChessLobby, ChessBoard, ChessSquare, ChessPiece (+ *.test.tsx alongside)
   hooks/        useAuth, useHubConnection (context + provider), useChessGame, useChessLobby
-  service/      Api.ts (axios + token storage), userApi.ts (REST), gameSession.ts (colour/name per room)
+  service/      Api.ts (axios + token storage + refresh), userApi.ts (REST), gameSession.ts (colour/name per room)
   types/        auth.ts, chess.ts (backend DTOs + coordinate helpers)
   mocks/        MSW 2 handlers/server/browser
   test-utils/   hub.tsx — createFakeHub + HubTestProvider
@@ -96,7 +97,10 @@ Layer flow: `components → hooks → service → types`. A component never impo
 3. Coordinates crossing the wire are algebraic (`"e2"`); `row`/`column` are grid layout only, via
    the helpers in `src/types/chess.ts` (`column` is **inverted** relative to `rank`).
 4. Credentials never in a URL (the SignalR handshake `accessTokenFactory` is the only exception),
-   never in logs; token storage is keyed per `userId`.
+   never in logs; token storage is `sessionStorage`, keyed per `userId`, owned by `Api.ts` only.
+   `useAuth` accepts the route `:id` only when a token for it exists with `sub === id`;
+   `RequireAuth` guards the authenticated routes; 401 triggers one single-flight refresh; "Sair"
+   is a real logout (`clearAllStoredTokens`). See `docs/seguranca.md`.
 5. Stable test selectors (`data-testid`, `role`, `label`, `alt`) — never CSS classes.
 
 ## Agent harness
@@ -138,16 +142,18 @@ node .\node_modules\eslint\bin\eslint.js . --max-warnings 0
 node .\node_modules\vitest\vitest.mjs run
 ```
 
-The suite **has** been run: **10 files, 72 tests passing**, `tsc --noEmit` clean, `eslint
---max-warnings 0` clean (2026-08-03). Any harness document claiming the suite could not be executed
+The suite **has** been run: **12 files, 127 tests passing**, `tsc --noEmit` clean, `eslint
+--max-warnings 0` clean (2026-09-23). Any harness document claiming the suite could not be executed
 predates this workaround.
 
 ## CI gates
 
-`.github/workflows/ci.yml` runs `npm ci`, `npx tsc --noEmit`, `npm run test:ci` and `npm run build`
-on push and PR to `main`. `codeql.yml` runs the security scan.
+`.github/workflows/ci.yml` runs `npm ci`, `npm audit --omit=dev --audit-level=high` (**blocking**,
+production deps only) plus the informative full audit, `npm run lint`, `npx tsc --noEmit`,
+`npm run test:ci` and `npm run build` on push and PR to `main`. `codeql.yml` runs the security scan.
 
 Before merge:
+- [ ] `npm audit --omit=dev --audit-level=high` clean (major-only advisories go to `docs/debito-tecnico.md`, never silenced)
 - [ ] `npm run typecheck` clean
 - [ ] `npm run lint` clean (`--max-warnings 0`)
 - [ ] `npm run test:ci` green, coverage floors met

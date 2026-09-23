@@ -51,9 +51,9 @@ O que **ainda** diverge do backend: o payload de cadastro (DT-03) e os claims de
 |---|---|
 | Framework | React 18 + TypeScript 5.9 |
 | Build e dev server | **Vite 7** (`vite.config.ts`) — o `react-scripts`/CRA **saiu** em 2026-08-01. Porta fixa em 3000 de propósito: é a origem que o CORS do backend libera e a que o Playwright aponta |
-| Roteamento | `react-router-dom` 6 (`Routes`/`Route`, `useParams`, `useNavigate`) |
-| Real-time | `@microsoft/signalr` 8 atrás do contexto `HubProvider` / hook `useHubConnection` |
-| HTTP | `axios` 1.6 com interceptor de `Authorization` em `src/service/Api.ts` |
+| Roteamento | `react-router-dom` 6.30 (`Routes`/`Route`, `useParams`, `useNavigate`), com `RequireAuth` nas rotas autenticadas |
+| Real-time | `@microsoft/signalr` 8.0.29 atrás do contexto `HubProvider` / hook `useHubConnection` |
+| HTTP | `axios` 1.20 com interceptor de `Authorization` **e** interceptor de refresh single-flight (401) em `src/service/Api.ts`; `timeout` de 10s |
 | Token | `jwt-decode` 4 (import nomeado `jwtDecode`) |
 | Estado | `useState`/`useContext` — **sem** Redux, Zustand, React Query ou SWR |
 | Estilo | CSS puro por componente em `src/styles/`, com `tokens.css` de variáveis — **sem** Tailwind, CSS-in-JS ou Sass |
@@ -70,12 +70,12 @@ estado, de UI kit ou de camada de dados sem decisão explícita registrada.
 
 ```
 src/
-  components/   App, Login, ChessLobby, ChessBoard, ChessSquare, ChessPiece (+ *.test.tsx ao lado)
+  components/   App, RequireAuth, Login, ChessLobby, ChessBoard, ChessSquare, ChessPiece (+ *.test.tsx ao lado)
   hooks/        useAuth, useHubConnection (contexto + provider), useChessGame, useChessLobby
-  service/      Api.ts (axios + storage de token), userApi.ts (REST), gameSession.ts (cor/nome por sala)
-  types/        auth.ts, chess.ts (DTOs do backend + helpers de coordenada)
+  service/      Api.ts (axios + storage de token + refresh), userApi.ts (REST), gameSession.ts (cor/nome por sala)
+  types/        auth.ts, chess.ts (DTOs do backend + helpers de coordenada + regra de nome de sala)
   mocks/        MSW 2: handlers.ts, server.ts (node), browser.ts
-  test-utils/   hub.tsx — createFakeHub + HubTestProvider
+  test-utils/   hub.tsx — createFakeHub + HubTestProvider; jwt.ts — JWT de teste
   integration/  testes de fluxo com MSW
   styles/       CSS por componente + tokens.css (variáveis)
   setupTests.ts bootstrap do Vitest (jest-dom, servidor MSW)
@@ -114,9 +114,17 @@ Não existe `src/utils/`: o `reportWebVitals` do CRA saiu junto com o `react-scr
 - **Token nunca em URL** — REST vai por header `Authorization: Bearer` (interceptor do
   `createApi`). A única exceção é o handshake do SignalR, que usa `accessTokenFactory` (o cliente
   coloca em query string; é o que o backend aceita apenas para `/chesshub`).
-- **Storage de token é por usuário** — `localStorage.accessToken{userId}` e
-  `refreshToken{userId}`, mais `sessionStorage.currentUserId` para o interceptor saber qual token
-  usar. Nunca leia token direto do `localStorage` fora de `src/service/Api.ts`.
+- **Storage de token é por usuário e por aba** — `sessionStorage.accessToken{userId}` e
+  `refreshToken{userId}` (era `localStorage` até 2026-09-23), mais `sessionStorage.currentUserId`
+  para o interceptor e o hub saberem qual token usar. Nunca leia token direto do storage fora de
+  `src/service/Api.ts`. `currentUserId` só é gravado por `useAuth` quando há token para o `:id`
+  da rota com `sub` igual ao id — o id da URL, sozinho, não abre sessão.
+- **Rota autenticada fica dentro de `RequireAuth`** (`src/components/RequireAuth.tsx`). Sem sessão
+  para o `:id` → `Navigate` para `/`. Não repita a checagem à mão em tela nova.
+- **Sessão se renova sozinha e termina de verdade.** 401 em endpoint autenticado dispara um
+  refresh (single-flight) e repete a requisição; refresh recusado limpa tudo e volta ao login.
+  "Sair" chama `logout` (apaga todo token da aba) antes de navegar. Ver skill
+  `autenticacao-e-sessao` e [`docs/seguranca.md`](docs/seguranca.md).
 - **Seletor de teste estável** — componente novo expõe `data-testid` ou `role`/`label`
   associado. Teste não depende de classe CSS nem de texto solto de parágrafo.
 - **Erro de negócio é mensagem, não exceção.** Resposta do hub e do REST vem com
@@ -125,8 +133,17 @@ Não existe `src/utils/`: o `reportWebVitals` do CRA saiu junto com o `react-scr
 
 ### Áreas críticas (maior risco de regressão)
 
-- **`src/service/Api.ts`** — interceptor e storage de token. Todo request autenticado passa aqui;
-  errar a chave do `localStorage` desloga todo mundo silenciosamente.
+- **`src/service/Api.ts`** — storage de token (`sessionStorage`), interceptor de `Authorization`
+  e interceptor de refresh. Todo request autenticado passa aqui; errar a chave do storage desloga
+  todo mundo silenciosamente. O refresh é **single-flight** (`refreshInFlight` no módulo): quebrar
+  a trava faz N 401 simultâneos gastarem o mesmo refresh token rotativo e derrubarem a sessão na
+  hora de renová-la. A renovação sai por uma instância axios **sem** interceptor — com o
+  interceptor, um 401 no refresh seria loop. `login`/`register`/`refresh-token` nunca disparam
+  refresh.
+- **`src/hooks/useAuth.ts` e `src/components/RequireAuth.tsx`** — a decisão de "há sessão para
+  este `:id`?" (token existe, `sub === id`, não expirou) e a guarda que a aplica. O efeito de
+  `useAuth` decide pela leitura **fresca** do storage, nunca pelo estado do render anterior: foi
+  assim que trocar `u1` → `u2` na URL gravava `currentUserId = u2` por um render.
 - **`src/hooks/useHubConnection.tsx`** — provider único de conexão, montado em `src/index.tsx`
   acima do `Router`. O `useEffect` depende de `[url, sessionEpoch]`, e a `factory` fica atrás de um
   `useRef` **fora** do array de dependências: antes ela entrava nas dependências, e quem passasse
@@ -253,17 +270,25 @@ desse contorno ser conhecido — **rode antes de acreditar**.
 
   **A stack está pinada de propósito.** React 18, react-router-dom 6, Vite 7 e Vitest 3 são a
   stack declarada, e `npm outdated` vai apontar major para eles indefinidamente — isso é o
-  esperado, não uma pendência. Verde de CI não sustenta major de React nem de router: são 72
-  testes, 74% de cobertura e um e2e de caminho felizes, e esses majors mudam comportamento em
+  esperado, não uma pendência. Verde de CI não sustenta major de React nem de router: são 127
+  testes, 85% de cobertura e um e2e de caminho felizes, e esses majors mudam comportamento em
   efeito, `StrictMode` e resolução de rota, que é onde a suíte não olha.
+
+  **Minor/patch com advisory em dependência de produção é o caso previsto de upgrade.** Em
+  2026-09-23 subiram `axios` 1.6.7 → 1.20.0, `react-router-dom` 6.21.3 → 6.30.6 e
+  `@microsoft/signalr` 8.0.17 → 8.0.29 (mais `ws` transitivo), por advisories `high`/`critical`
+  em código que vai ao navegador. Dois `moderate` ficaram porque só se resolvem em major
+  (react-router 7, Vitest 4) — registrados em DT-18, não silenciados.
 
   Ao subir uma versão, faça **no PR da mudança que precisa dela**: leia a nota de migração, rode a
   suíte e atualize a stack declarada neste arquivo, no `README.md` e no `.claude/CLAUDE.md` **no
   mesmo diff** — foi a divergência entre stack declarada e stack real que este repositório acabou
   de pagar para consertar.
 
-  O que substitui o bot: `npm audit` informativo no `ci.yml` (não reprova o build, pelo mesmo
-  critério que o back aplica a NU1901-1904) e o workflow
+  O que substitui o bot: no `ci.yml`, `npm audit` informativo sobre a árvore inteira (não reprova,
+  pelo mesmo critério que o back aplica a NU1901-1904) **e** `npm audit --omit=dev
+  --audit-level=high` **bloqueante**, só sobre dependências de produção — `high`/`critical` no
+  que vai ao navegador reprova o build; mais o workflow
   [`dependencias`](.github/workflows/dependencias.yml), acionado à mão. Dependabot **alerts**
   podem ficar ligados — só informam; **security updates** ficam desligados, porque abrem PR.
 
@@ -319,3 +344,4 @@ nomes que o backend não usa (`GetAvailableRoom`, `SendPossiblesMoves`, `BoardCh
 | [`BACKEND_CHANGES.md`](BACKEND_CHANGES.md) | Contrato acordado com o backend e mudanças pedidas a ele |
 | [`docs/guia-do-desenvolvedor.md`](docs/guia-do-desenvolvedor.md) | Guia de tarefa para quem está chegando: receitas (componente, hook, chamada REST, evento de hub, tabuleiro), armadilhas do repositório e onde não mexer |
 | [`docs/debito-tecnico.md`](docs/debito-tecnico.md) | Divergências com o backend, débito conhecido e decisões pendentes |
+| [`docs/seguranca.md`](docs/seguranca.md) | O que o front já faz de segurança, os headers que só o host emite (com exemplos nginx / Azure SWA) e o checklist de produção |

@@ -67,7 +67,7 @@ Já implementadas; destino documental definido. Não se repetem no `functional-m
 | Tema | Decisão vigente | Onde vive |
 |---|---|---|
 | Conexão real-time | provider único `HubProvider` montado acima do `Router`, com `withAutomaticReconnect([0,2000,5000,10000])`; `invoke` recusa quando não conectado; `on` devolve desinscrição | skill `conexao-signalr` |
-| Token | `localStorage.accessToken{userId}` + `refreshToken{userId}`, `sessionStorage.currentUserId`, interceptor no `createApi`; leitura só em `src/service/Api.ts` | skill `autenticacao-e-sessao` |
+| Token | `sessionStorage.accessToken{userId}` + `refreshToken{userId}` (era `localStorage` até 2026-09-23), `sessionStorage.currentUserId`, interceptor de `Authorization` e de refresh single-flight no `createApi`, `RequireAuth` nas rotas; leitura só em `src/service/Api.ts` | skill `autenticacao-e-sessao`, `docs/seguranca.md` |
 | Chamadas REST | centralizadas em `userApi`, uma função por endpoint, tipos de `src/types/auth.ts` | skill `contrato-do-backend` |
 | Estado de jogo | `useChessGame` como única fonte: `snapshot`, `highlighted` (`Set<string>` de algébricos), `lastMoveError` | skill `tabuleiro-e-jogada` |
 | Coordenada | `toAlgebraic(row, column)`, `fileFromRow`, `rankFromColumn` em `src/types/chess.ts`; `file = 'a' + row`, `rank = 8 - column` | skill `tabuleiro-e-jogada` |

@@ -69,9 +69,30 @@ export interface GameOverEvent {
   snapshot: BoardSnapshot;
 }
 
+/**
+ * Resposta de `CreateRoom`.
+ *
+ * `success: false` quando o nome é inválido (ver `ROOM_NAME_PATTERN`) ou quando o servidor
+ * atingiu o teto de salas; `message` explica. `room` e `alreadyExisted` continuam vindo — o
+ * contrato antigo era só os dois, e o backend passou a envolvê-los no par `success`/`message`
+ * em 2026-09-23.
+ */
 export interface CreateRoomResponse {
+  success: boolean;
+  message?: string;
   room: string;
   alreadyExisted: boolean;
+}
+
+/**
+ * Nome de sala aceito pelo servidor: 1 a 64 caracteres, só letras e dígitos (Unicode), espaço,
+ * `-` e `_`. É a mesma regra do `ChessHub`, repetida aqui para recusar antes de ir à rede — a
+ * validação que vale continua sendo a do servidor (Princípio I), esta só poupa a ida e volta.
+ */
+export const ROOM_NAME_PATTERN = /^[\p{L}\p{N} _-]{1,64}$/u;
+
+export function isValidRoomName(name: string): boolean {
+  return ROOM_NAME_PATTERN.test(name);
 }
 
 export interface JoinRoomResponse {

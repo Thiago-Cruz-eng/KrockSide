@@ -2,7 +2,40 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/Login.css';
 import userApi from '../service/userApi';
+import { httpStatusOf } from '../service/Api';
 import { useAuth } from '../hooks/useAuth';
+
+/**
+ * Limites de senha do `POST /register`, iguais aos do servidor. Conferir aqui poupa a ida e volta;
+ * a regra que vale continua sendo a dele.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+
+export const TOO_MANY_REQUESTS_MESSAGE =
+  'Muitas tentativas. Aguarde um minuto e tente novamente.';
+
+/**
+ * Mensagem para uma exceção do transporte.
+ *
+ * 429 é o único status com tratamento próprio: o backend limita tentativas de login, cadastro e
+ * refresh, e "Falha ao fazer login" mandaria o usuário tentar de novo — exatamente o que prolonga o
+ * bloqueio. Qualquer outra coisa (rede, timeout, 5xx) cai no texto genérico do chamador.
+ */
+function transportErrorMessage(err: unknown, fallback: string): string {
+  return httpStatusOf(err) === 429 ? TOO_MANY_REQUESTS_MESSAGE : fallback;
+}
+
+/** Recusa local da senha de cadastro, ou `null` quando ela passa. */
+function passwordProblem(password: string): string | null {
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return `A senha precisa ter pelo menos ${PASSWORD_MIN_LENGTH} caracteres`;
+  }
+  if (password.length > PASSWORD_MAX_LENGTH) {
+    return `A senha pode ter no máximo ${PASSWORD_MAX_LENGTH} caracteres`;
+  }
+  return null;
+}
 
 /**
  * Os campos do formulário.
@@ -96,10 +129,11 @@ const Login: React.FC = () => {
       // Gravar antes de navegar: `setTokens` também avisa o HubProvider, que reabre a conexão agora
       // autenticada. Navegar primeiro faria o lobby montar sem token e mostrar sala nenhuma.
       setTokens(response.userId, response.accessToken, response.refreshToken);
-      navigate(`/chess-lobby/${response.userId}`);
-    } catch {
+      navigate(`/chess-lobby/${encodeURIComponent(response.userId)}`);
+    } catch (err) {
       // Só cai aqui em falha de rede ou status de erro — regra de negócio vem como `success: false`.
-      setErrorMessage('Falha ao fazer login. Tente novamente.');
+      // Exceção: 429, que é o servidor dizendo "espere", e ganha mensagem própria.
+      setErrorMessage(transportErrorMessage(err, 'Falha ao fazer login. Tente novamente.'));
     }
   };
 
@@ -111,6 +145,11 @@ const Login: React.FC = () => {
    * esta checagem é conveniência, não a garantia.
    */
   const handleRegister = async () => {
+    const problem = passwordProblem(formData.password);
+    if (problem) {
+      setErrorMessage(problem);
+      return;
+    }
     if (formData.password !== formData.passwordConfirmation) {
       setErrorMessage('As senhas não coincidem');
       return;
@@ -134,9 +173,9 @@ const Login: React.FC = () => {
       }
 
       setTokens(response.userId, response.accessToken, response.refreshToken);
-      navigate(`/chess-lobby/${response.userId}`);
-    } catch {
-      setErrorMessage('Falha ao criar conta. Tente novamente.');
+      navigate(`/chess-lobby/${encodeURIComponent(response.userId)}`);
+    } catch (err) {
+      setErrorMessage(transportErrorMessage(err, 'Falha ao criar conta. Tente novamente.'));
     }
   };
 
@@ -204,6 +243,9 @@ const Login: React.FC = () => {
               autoComplete={isLogin ? 'current-password' : 'new-password'}
               value={formData.password}
               onChange={handleChange}
+              // Só no cadastro: no login a senha já existe e pode ser de antes do limite.
+              minLength={isLogin ? undefined : PASSWORD_MIN_LENGTH}
+              maxLength={isLogin ? undefined : PASSWORD_MAX_LENGTH}
               required
             />
           </div>

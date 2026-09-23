@@ -17,9 +17,10 @@ React + TypeScript chess multiplayer frontend. Backend: ASP.NET Core SignalR hub
 ## Stack
 
 - React 18 + TypeScript 5.9, empacotado por **Vite 7**
-- `@microsoft/signalr` (oficial) via hook `useHubConnection`
-- `axios` com `Authorization: Bearer` interceptor
-- `react-router-dom` 6
+- `@microsoft/signalr` 8.0.29 (oficial) via hook `useHubConnection`
+- `axios` 1.20 com interceptor de `Authorization: Bearer` **e** interceptor de refresh
+  single-flight em 401 (`src/service/Api.ts`)
+- `react-router-dom` 6.30, com `RequireAuth` nas rotas autenticadas
 - **Vitest 3** + RTL 16 + MSW 2 (unit & integration)
 - Playwright (E2E)
 - ESLint 9 (flat config) + typescript-eslint
@@ -82,7 +83,8 @@ playwright.config.ts
 ### Contratos hub (Hibrygame)
 
 Invocados pelo cliente:
-- `CreateRoom(name) → CreateRoomResponse`
+- `CreateRoom(name) → CreateRoomResponse { success, message?, room, alreadyExisted }`
+  (`success: false` para nome inválido ou teto de salas)
 - `JoinRoom(player, name) → JoinRoomResponse` (inclui `color`)
 - `GetAvailableRooms() → string[]`
 - `GetPlayersInEachRoom() → Record<room, players[]>`
@@ -105,11 +107,32 @@ Eventos do servidor:
 
 ### Auth
 
-- JWT em `localStorage.accessToken${userId}` + refresh em `localStorage.refreshToken${userId}`.
-- `userId` = Guid (backend exige `Guid.TryParse` em refresh).
-- `sessionStorage.currentUserId` usado pelo axios interceptor para escolher token.
-- SignalR autentica via `accessTokenFactory` (query string `?access_token=...` no handshake).
+Modelo revisado no hardening de 2026-09-23 (detalhe na skill
+[`autenticacao-e-sessao`](./.agents/skills/autenticacao-e-sessao/SKILL.md) e em
+[`docs/seguranca.md`](./docs/seguranca.md)):
+
+- JWT em `sessionStorage.accessToken${userId}` + refresh em `sessionStorage.refreshToken${userId}`
+  — **por aba**: morre ao fechar, sobrevive a F5; duas abas são duas sessões independentes.
+  Só `src/service/Api.ts` lê ou escreve essas chaves.
+- `sessionStorage.currentUserId` diz ao interceptor e ao hub qual token usar. `useAuth` só o grava
+  quando há token para o `:id` da rota **com `sub` igual ao id** e no prazo — trocar o id na URL
+  não herda sessão.
+- `RequireAuth` envolve `/chess-lobby/:id` e `/chess-board/:roomName/:id`: sem sessão →
+  redireciona para `/`.
+- **Refresh automático:** 401 em endpoint autenticado → um refresh (single-flight) → grava o par
+  novo (rotação) → repete a requisição. Refresh recusado → `clearAllStoredTokens()` + volta ao
+  login. Nunca para `login`/`register`/`refresh-token`.
+- "Sair" faz logout real (apaga todo token da aba). "Sair da partida" chama `LeaveRoom` e volta ao
+  lobby sem encerrar a sessão.
+- 429 (`Too many requests`, com `Retry-After`) em login/cadastro exibe "Muitas tentativas. Aguarde
+  um minuto e tente novamente." Senha de cadastro: 8 a 128 caracteres.
+- `userId` = Guid (backend exige `Guid.TryParse` em refresh; `getUser` só aceita Guid e o backend
+  responde 404 para id que não é o próprio).
+- SignalR autentica via `accessTokenFactory` (query string `?access_token=...` no handshake) — a
+  única exceção ao "token nunca em URL". Cookie `HttpOnly` depende do backend (DT-17).
 - Backend valida `JWT.sub == body.userId`. Mismatch = 403.
+- Nome de sala: `^[\p{L}\p{N} _-]{1,64}$`, conferido no cliente e no servidor; a rota do tabuleiro
+  leva o nome com `encodeURIComponent`.
 
 ### Tratamento de erros
 
@@ -121,11 +144,18 @@ Eventos do servidor:
 
 Três camadas, cada uma pegando o que a de cima não pega:
 
-- **Unit** — ao lado dos arquivos. Hub mockado via `createFakeHub`, REST via `axios-mock-adapter`.
-- **Integração** — `src/integration/`. MSW handlers em `src/mocks/handlers.ts`.
-- **E2E** — `tests-e2e/` (28 testes). Navegador real → Vite → API .NET → MongoDB, **sem mock em
-  camada nenhuma**. O `playwright.config.ts` sobe as duas pontas e o `global-setup.ts` cadastra
-  os usuários via `POST /register`, então não há pré-requisito manual além de um MongoDB de pé.
+- **Unit** — ao lado dos arquivos. Hub mockado via `createFakeHub`, REST via `axios-mock-adapter`;
+  o interceptor de refresh é testado com MSW (a renovação sai por uma instância axios própria).
+  JWT de teste em `src/test-utils/jwt.ts`.
+- **Integração** — `src/integration/`. MSW handlers em `src/mocks/handlers.ts` (inclui refresh com
+  sucesso, `failedRefresh` e `rateLimitedLogin`).
+- **E2E** — `tests-e2e/` (38 testes; a suíte de acessibilidade roda em dois temas). Navegador real
+  → Vite → API .NET → MongoDB, **sem mock em camada nenhuma**. O `playwright.config.ts` sobe as
+  duas pontas e o `global-setup.ts` cadastra os usuários via `POST /register`, então não há
+  pré-requisito manual além de um MongoDB de pé.
+
+Unit + integração: **127 testes em 12 arquivos** (`npm run test:ci`, 2026-09-23), com piso de
+cobertura em `vite.config.ts`.
 
 O E2E não é redundância: a versão anterior deste diretório mockava o backend com `page.route`,
 inclusive em `**/get/**` — a rota **errada** que o front chamava. O dublê espelhava o bug, o teste
@@ -143,8 +173,8 @@ E2E_SKIP_API_START=true npm run test:e2e   # quando a API já está no ar
 
 | Job | O que faz | Custo |
 |---|---|---|
-| `build-and-test` | lint + `tsc --noEmit` + unit/integração + build | ~3 min |
-| `e2e` | MongoDB em service container, checkout dos dois repos, sobe API + Vite, roda os 28 testes; trace/vídeo/screenshot das falhas como artifact | ~15-20 min |
+| `build-and-test` | `npm audit --omit=dev --audit-level=high` (**bloqueante**, só deps de produção) + audit informativo completo + lint + `tsc --noEmit` + unit/integração + build | ~3 min |
+| `e2e` | MongoDB em service container, checkout dos dois repos, sobe API + Vite, roda os 38 testes; trace/vídeo/screenshot das falhas como artifact | ~15-20 min |
 
 O job `e2e` precisa do backend, que vive em outro repositório, e resolve qual ref usar nesta
 ordem: variável `HIBRYGAME_REF` (escape manual) → **branch de mesmo nome no Hibrygame** → `main`.
@@ -158,5 +188,15 @@ O passo a passo completo — os três formatos de demanda (back+front, só back,
 teste mora e a janela entre os dois merges — está em
 [docs/fluxo-de-trabalho.md](https://github.com/Thiago-Cruz-eng/Hibrygame/blob/main/docs/fluxo-de-trabalho.md).
 
+### Segurança e publicação
+
+O que o front já faz (sessionStorage, logout total, refresh automático, guarda de rota, CSP de
+build, `sourcemap: 'hidden'`, audit bloqueante) e o que **só o host** consegue fazer (headers HTTP:
+`frame-ancestors`, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
+`Permissions-Policy`), com exemplos para nginx e Azure Static Web Apps e o checklist de produção,
+está em [`docs/seguranca.md`](./docs/seguranca.md). A CSP é injetada como meta tag **só no
+`vite build`** — o dev server precisa de script inline e `ws:` para o HMR.
+
 ## Pendente
 - Manter sincronizado com `BACKEND_CHANGES.md` / doc do backend (Hibrygame Orchestrator).
+- Cookie `HttpOnly` + CSRF para o token (DT-17) — depende do backend.
